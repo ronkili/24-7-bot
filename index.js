@@ -224,25 +224,7 @@ client.on('interactionCreate', async (interaction) => {
     try {
 
         // =======================
-        // Slash Commands
-        // =======================
-
-        if (interaction.isChatInputCommand()) {
-            const command = client.commands.get(interaction.commandName);
-
-            if (!command) {
-                return interaction.reply({
-                    content: '❌ הפקודה לא נמצאה בבוט.',
-                    ephemeral: true
-                });
-            }
-
-            await command.execute(interaction);
-            return;
-        }
-
-        // =======================
-        // Buttons
+        // Buttons - Claim Help
         // =======================
 
         if (interaction.isButton()) {
@@ -254,21 +236,12 @@ client.on('interactionCreate', async (interaction) => {
                 });
             }
 
+            // רק Staff יכולים Claim
             if (!interaction.member.roles.cache.has(staffRoleId)) {
                 return interaction.reply({
                     content: '❌ רק צוות ה-Staff יכול לקחת בקשות!',
                     ephemeral: true
                 });
-            }
-
-            // עונה מיד לדיסקורד כדי שלא יהיה This interaction failed
-            await interaction.deferUpdate();
-
-            const currentButton =
-                interaction.message.components[0]?.components[0];
-
-            if (currentButton?.disabled === true) {
-                return;
             }
 
             const claimedButton = new ButtonBuilder()
@@ -280,7 +253,7 @@ client.on('interactionCreate', async (interaction) => {
             const row = new ActionRowBuilder()
                 .addComponents(claimedButton);
 
-            await interaction.message.edit({
+            await interaction.update({
                 components: [row]
             });
 
@@ -296,6 +269,24 @@ client.on('interactionCreate', async (interaction) => {
                 ).catch(() => {});
             }
 
+            return;
+        }
+
+        // =======================
+        // Slash Commands
+        // =======================
+
+        if (interaction.isChatInputCommand()) {
+            const command = client.commands.get(interaction.commandName);
+
+            if (!command) {
+                return interaction.reply({
+                    content: '❌ הפקודה לא נמצאה בבוט.',
+                    ephemeral: true
+                });
+            }
+
+            await command.execute(interaction);
             return;
         }
 
