@@ -5,21 +5,25 @@ const {
     GatewayIntentBits,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    Collection
 } = require('discord.js');
 
-const client = new Client({
+const fs = require('fs');
+const path = require('path');
+const { addXp } = require('./utils/xpSystem');
 
+const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildVoiceStates
     ]
-
 });
 
 // =======================
-// שים כאן IDs
+// IDs
 // =======================
 
 const helpChannelId = "1496162286178406461";
@@ -27,307 +31,288 @@ const staffRoleId = "1496162203147964426";
 const logsChannelId = "1497632395808215130";
 
 // =======================
-// Cooldown
+// Cooldowns + Locks
 // =======================
 
-const cooldown = new Map();
-const cooldownTime = 10 * 1000;
+const helpCooldown = new Map();
+const xpCooldown = new Map();
+const handledMessages = new Set();
+
+const helpCooldownTime = 10 * 1000;
+const xpCooldownTime = 60 * 1000;
 
 // =======================
-// כשהבוט נדלק
+// Load Slash Commands
+// =======================
+
+client.commands = new Collection();
+
+const commandsPath = path.join(__dirname, 'commands');
+
+if (fs.existsSync(commandsPath)) {
+    const commandFiles = fs.readdirSync(commandsPath)
+        .filter(file => file.endsWith('.js'));
+
+    for (const file of commandFiles) {
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+
+        if (command.data && command.execute) {
+            client.commands.set(command.data.name, command);
+            console.log(`✅ Loaded command: ${command.data.name}`);
+        }
+    }
+}
+
+// =======================
+// Ready
 // =======================
 
 client.once('ready', () => {
-
     console.log(`✅ Logged in as ${client.user.tag}`);
-
 });
 
 // =======================
-// !h Helping System
+// Message Handler
+// Help + XP
 // =======================
 
 client.on('messageCreate', async (message) => {
+    try {
+        if (message.author.bot) return;
+        if (!message.guild) return;
 
-    if (message.author.bot) return;
+        // =======================
+        // !h Help System
+        // =======================
 
-    if (message.content.toLowerCase().startsWith('!h')) {
+        if (message.content.toLowerCase().startsWith('!h')) {
 
-        // Cooldown
-        if (cooldown.has(message.author.id)) {
+            // נעילה לפי ID של ההודעה
+            if (handledMessages.has(message.id)) return;
+            handledMessages.add(message.id);
 
-            const expirationTime =
-                cooldown.get(message.author.id) + cooldownTime;
+            setTimeout(() => {
+                handledMessages.delete(message.id);
+            }, 60 * 1000);
 
-            if (Date.now() < expirationTime) {
+            const helpChannel = message.guild.channels.cache.get(helpChannelId);
+            const logsChannel = message.guild.channels.cache.get(logsChannelId);
 
-                const timeLeft =
-                    ((expirationTime - Date.now()) / 1000).toFixed(1);
-
-                return message.reply(
-                    `⏱️ חכה ${timeLeft} שניות לפני שאתה עושה !h שוב`
-                );
-
+            if (!helpChannel) {
+                return message.reply('❌ לא נמצא ערוץ help');
             }
 
-        }
+            // בדיקה אם כבר נשלחה בקשת help לאותה הודעה
+            // זה עוזר גם אם יש בטעות עוד instance אחד שרץ.
+            const recentMessages = await helpChannel.messages.fetch({ limit: 20 }).catch(() => null);
 
-        cooldown.set(message.author.id, Date.now());
+            if (recentMessages) {
+                const alreadySent = recentMessages.find(msg =>
+                    msg.content.includes(`HELP_SOURCE:${message.id}`)
+                );
 
-        setTimeout(() => {
+                if (alreadySent) return;
+            }
 
-            cooldown.delete(message.author.id);
+            // Cooldown
+            if (helpCooldown.has(message.author.id)) {
+                const expirationTime =
+                    helpCooldown.get(message.author.id) + helpCooldownTime;
 
-        }, cooldownTime);
+                if (Date.now() < expirationTime) {
+                    const timeLeft =
+                        ((expirationTime - Date.now()) / 1000).toFixed(1);
 
-        // סיבה
-        let args = message.content.slice(2).trim();
+                    return message.reply(
+                        `⏱️ חכה ${timeLeft} שניות לפני שאתה עושה !h שוב`
+                    );
+                }
+            }
 
-        if (!args) {
+            helpCooldown.set(message.author.id, Date.now());
 
-            args = "אין סיבה";
+            setTimeout(() => {
+                helpCooldown.delete(message.author.id);
+            }, helpCooldownTime);
 
-        }
+            let reason = message.content.slice(2).trim();
 
-        const helpChannel =
-            message.guild.channels.cache.get(helpChannelId);
+            if (!reason) {
+                reason = "אין סיבה";
+            }
 
-        const logsChannel =
-            message.guild.channels.cache.get(logsChannelId);
+            const claimButton = new ButtonBuilder()
+                .setCustomId(`claim_help_${message.id}`)
+                .setLabel('Claim')
+                .setStyle(ButtonStyle.Success);
 
-        if (!helpChannel) {
+            const row = new ActionRowBuilder()
+                .addComponents(claimButton);
 
-            return message.reply('❌ לא נמצא ערוץ help');
-
-        }
-
-        // כפתור Claim
-        const claimButton = new ButtonBuilder()
-            .setCustomId('claim_help')
-            .setLabel('Claim')
-            .setStyle(ButtonStyle.Success);
-
-        const row = new ActionRowBuilder()
-            .addComponents(claimButton);
-
-        // שליחה לערוץ help
-        const sentMessage = await helpChannel.send({
-
-            content:
+            const sentMessage = await helpChannel.send({
+                content:
 `📩 **בקשת עזרה חדשה**
 
 👤 משתמש: <@${message.author.id}>
-📝 סיבה: ${args}
+📝 סיבה: ${reason}
 
-<@&${staffRoleId}>`,
+<@&${staffRoleId}>
 
-            components: [row]
+||HELP_SOURCE:${message.id}||`,
+                components: [row]
+            });
 
-        });
-
-        // לוג של פתיחת בקשה
-        if (logsChannel) {
-
-            logsChannel.send(
+            if (logsChannel) {
+                logsChannel.send(
 `📩 בקשת Help חדשה
 
 👤 משתמש: <@${message.author.id}>
-📝 סיבה: ${args}
+📝 סיבה: ${reason}
 🆔 Message ID: ${sentMessage.id}`
-            );
+                ).catch(() => {});
+            }
 
-        }
-
-        // DM למשתמש
-        try {
-
-            await message.author.send(
+            try {
+                await message.author.send(
 `📩 בקשת העזרה שלך נשלחה לצוות!
 
 📝 סיבה:
-${args}`
-            );
+${reason}`
+                );
+            } catch {}
 
-        } catch {}
-
-    }
-
-});
-
-const {
-    EmbedBuilder,
-    PermissionFlagsBits
-} = require('discord.js');
-
-// =======================
-// שים כאן IDs
-// =======================
-
-const warnLogsChannelId = "1497959735607951430";
-
-
-// =======================
-// WARN COMMAND
-// =======================
-
-client.on('messageCreate', async (message) => {
-
-    if (message.author.bot) return;
-
-    if (message.content.startsWith('!warn')) {
-
-        // רק STAFF יכולים
-        if (!message.member.roles.cache.has(staffRoleId)) {
-
-            return message.reply("❌ אין לך הרשאה להשתמש בפקודה הזאת");
-
+            return;
         }
 
-        // תיוג משתמש
-        const user = message.mentions.users.first();
+        // =======================
+        // XP System
+        // =======================
 
-        if (!user) {
+        if (message.content.startsWith('!')) return;
 
-            return message.reply("❌ תתייג משתמש");
+        const xpKey = `${message.guild.id}-${message.author.id}`;
 
+        if (xpCooldown.has(xpKey)) return;
+
+        xpCooldown.set(xpKey, true);
+
+        setTimeout(() => {
+            xpCooldown.delete(xpKey);
+        }, xpCooldownTime);
+
+        const randomXp = Math.floor(Math.random() * 11) + 5;
+        const result = addXp(message.author.id, randomXp);
+
+        if (result.leveledUp) {
+            message.channel.send(
+                `🎉 ${message.author} עלה לרמה **${result.user.level}**!`
+            ).catch(() => {});
         }
-
-        // סיבה
-        const args = message.content.split(' ').slice(2);
-        const reason = args.join(' ') || "אין סיבה";
-
-        const warnLogsChannel =
-            message.guild.channels.cache.get(warnLogsChannelId);
-
-        // זמן
-        const now = new Date();
-
-        // EMBED כמו בתמונה
-        const warnEmbed = new EmbedBuilder()
-
-            .setColor("Red")
-
-            .setTitle("⚠️ Member Warned (Voice)")
-
-            .addFields(
-
-                {
-                    name: "Moderator",
-                    value: `<@${message.author.id}> (${message.author.tag})`
-                },
-
-                {
-                    name: "Member",
-                    value: `<@${user.id}> (${user.tag})`
-                },
-
-                {
-                    name: "Reason",
-                    value: reason
-                },
-
-                {
-                    name: "Warn Time",
-                    value: now.toLocaleString()
-                }
-
-            )
-
-            .setFooter({
-
-                text: `Moderation System • ${now.toLocaleString()}`
-
-            });
-
-        // שליחה לערוץ warn logs
-        if (warnLogsChannel) {
-
-            warnLogsChannel.send({
-
-                embeds: [warnEmbed]
-
-            });
-
-        }
-
-        // ניסיון לשלוח DM למשתמש
-        try {
-
-            await user.send({
-
-                embeds: [warnEmbed]
-
-            });
-
-        } catch {}
-
-        // אישור בצ'אט
-        message.reply(`✅ <@${user.id}> קיבל Warn`);
-
-    }
-
-});
-// =======================
-// SLASH COMMAND HANDLER
-// =======================
-
-const fs = require('fs');
-const path = require('path');
-
-client.commands = new Map();
-
-const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath)
-    .filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-
-    const filePath =
-        path.join(commandsPath, file);
-
-    const command =
-        require(filePath);
-
-    client.commands.set(
-        command.data.name,
-        command
-    );
-
-}
-
-// הפעלת Slash Commands
-
-client.on('interactionCreate', async interaction => {
-
-    if (!interaction.isChatInputCommand())
-        return;
-
-    const command =
-        client.commands.get(
-            interaction.commandName
-        );
-
-    if (!command) return;
-
-    try {
-
-        await command.execute(interaction);
 
     } catch (error) {
-
-        console.error(error);
-
-        if (!interaction.replied) {
-
-            interaction.reply({
-                content: "❌ הייתה שגיאה",
-                ephemeral: true
-            });
-
-        }
-
+        console.error('❌ Message Error:', error);
     }
-
 });
 
-client.login(process.env.TOKEN);
+// =======================
+// Interaction Handler
+// Slash Commands + Claim
+// =======================
+
+client.on('interactionCreate', async (interaction) => {
+    try {
+
+        // =======================
+        // Slash Commands
+        // =======================
+
+        if (interaction.isChatInputCommand()) {
+            const command = client.commands.get(interaction.commandName);
+
+            if (!command) {
+                return interaction.reply({
+                    content: '❌ הפקודה לא נמצאה בבוט.',
+                    ephemeral: true
+                });
+            }
+
+            await command.execute(interaction);
+            return;
+        }
+
+        // =======================
+        // Buttons
+        // =======================
+
+        if (interaction.isButton()) {
+
+            if (!interaction.customId.startsWith('claim_help')) {
+                return interaction.reply({
+                    content: '❌ כפתור לא מוכר.',
+                    ephemeral: true
+                });
+            }
+
+            if (!interaction.member.roles.cache.has(staffRoleId)) {
+                return interaction.reply({
+                    content: '❌ רק צוות ה-Staff יכול לקחת בקשות!',
+                    ephemeral: true
+                });
+            }
+
+            // עונה מיד לדיסקורד כדי שלא יהיה This interaction failed
+            await interaction.deferUpdate();
+
+            const currentButton =
+                interaction.message.components[0]?.components[0];
+
+            if (currentButton?.disabled === true) {
+                return;
+            }
+
+            const claimedButton = new ButtonBuilder()
+                .setCustomId('claimed_help')
+                .setLabel(`Claimed by ${interaction.user.username}`)
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true);
+
+            const row = new ActionRowBuilder()
+                .addComponents(claimedButton);
+
+            await interaction.message.edit({
+                components: [row]
+            });
+
+            const logsChannel =
+                interaction.guild.channels.cache.get(logsChannelId);
+
+            if (logsChannel) {
+                logsChannel.send(
+`✅ בקשת Help נלקחה
+
+👤 נלקח על ידי: <@${interaction.user.id}>
+🆔 Message ID: ${interaction.message.id}`
+                ).catch(() => {});
+            }
+
+            return;
+        }
+
+    } catch (error) {
+        console.error('❌ Interaction Error:', error);
+
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+                content: '❌ הייתה שגיאה באינטראקציה.',
+                ephemeral: true
+            }).catch(() => {});
+        }
+    }
+});
+
+// =======================
+// Login
+// =======================
+
+client.login(process.env.DISCORD_TOKEN);
