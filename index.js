@@ -88,7 +88,7 @@ client.on('messageCreate', async (message) => {
 
         if (message.content.toLowerCase().startsWith('!h')) {
 
-            // נעילה לפי ID של ההודעה
+            // מונע טיפול כפול באותה הודעה
             if (handledMessages.has(message.id)) return;
             handledMessages.add(message.id);
 
@@ -101,18 +101,6 @@ client.on('messageCreate', async (message) => {
 
             if (!helpChannel) {
                 return message.reply('❌ לא נמצא ערוץ help');
-            }
-
-            // בדיקה אם כבר נשלחה בקשת help לאותה הודעה
-            // זה עוזר גם אם יש בטעות עוד instance אחד שרץ.
-            const recentMessages = await helpChannel.messages.fetch({ limit: 20 }).catch(() => null);
-
-            if (recentMessages) {
-                const alreadySent = recentMessages.find(msg =>
-                    msg.content.includes(`HELP_SOURCE:${message.id}`)
-                );
-
-                if (alreadySent) return;
             }
 
             // Cooldown
@@ -157,9 +145,7 @@ client.on('messageCreate', async (message) => {
 👤 משתמש: <@${message.author.id}>
 📝 סיבה: ${reason}
 
-<@&${staffRoleId}>
-
-||HELP_SOURCE:${message.id}||`,
+<@&${staffRoleId}>`,
                 components: [row]
             });
 
@@ -224,7 +210,25 @@ client.on('interactionCreate', async (interaction) => {
     try {
 
         // =======================
-        // Buttons - Claim Help
+        // Slash Commands
+        // =======================
+
+        if (interaction.isChatInputCommand()) {
+            const command = client.commands.get(interaction.commandName);
+
+            if (!command) {
+                return interaction.reply({
+                    content: '❌ הפקודה לא נמצאה בבוט.',
+                    ephemeral: true
+                });
+            }
+
+            await command.execute(interaction);
+            return;
+        }
+
+        // =======================
+        // Buttons
         // =======================
 
         if (interaction.isButton()) {
@@ -236,12 +240,20 @@ client.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // רק Staff יכולים Claim
             if (!interaction.member.roles.cache.has(staffRoleId)) {
                 return interaction.reply({
                     content: '❌ רק צוות ה-Staff יכול לקחת בקשות!',
                     ephemeral: true
                 });
+            }
+
+            await interaction.deferUpdate();
+
+            const currentButton =
+                interaction.message.components[0]?.components[0];
+
+            if (currentButton?.disabled === true) {
+                return;
             }
 
             const claimedButton = new ButtonBuilder()
@@ -253,7 +265,7 @@ client.on('interactionCreate', async (interaction) => {
             const row = new ActionRowBuilder()
                 .addComponents(claimedButton);
 
-            await interaction.update({
+            await interaction.message.edit({
                 components: [row]
             });
 
@@ -269,24 +281,6 @@ client.on('interactionCreate', async (interaction) => {
                 ).catch(() => {});
             }
 
-            return;
-        }
-
-        // =======================
-        // Slash Commands
-        // =======================
-
-        if (interaction.isChatInputCommand()) {
-            const command = client.commands.get(interaction.commandName);
-
-            if (!command) {
-                return interaction.reply({
-                    content: '❌ הפקודה לא נמצאה בבוט.',
-                    ephemeral: true
-                });
-            }
-
-            await command.execute(interaction);
             return;
         }
 
