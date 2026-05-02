@@ -88,7 +88,6 @@ client.on('messageCreate', async (message) => {
 
         if (message.content.toLowerCase().startsWith('!h')) {
 
-            // מונע טיפול כפול באותה הודעה
             if (handledMessages.has(message.id)) return;
             handledMessages.add(message.id);
 
@@ -103,7 +102,6 @@ client.on('messageCreate', async (message) => {
                 return message.reply('❌ לא נמצא ערוץ help');
             }
 
-            // Cooldown
             if (helpCooldown.has(message.author.id)) {
                 const expirationTime =
                     helpCooldown.get(message.author.id) + helpCooldownTime;
