@@ -70,7 +70,7 @@ if (fs.existsSync(commandsPath)) {
 
 client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
-console.log("✅ RUNNING NEW INDEX WITHOUT HELP_SOURCE");
+    console.log("✅ RUNNING NEW INDEX WITHOUT HELP_SOURCE");
 });
 
 // =======================
