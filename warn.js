@@ -1,69 +1,107 @@
-const { 
-    SlashCommandBuilder, 
-    PermissionFlagsBits, 
-    EmbedBuilder 
-} = require('discord.js');
-
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+ 
 module.exports = {
-
-data: new SlashCommandBuilder()
-.setName('warn')
-.setDescription('לתת אזהרה למשתמש')
-.addUserOption(option =>
-    option.setName('user')
-    .setDescription('המשתמש לקבל אזהרה')
-    .setRequired(true))
-.addStringOption(option =>
-    option.setName('reason')
-    .setDescription('סיבת האזהרה')
-    .setRequired(true))
-.setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
-
-async execute(interaction) {
-
-const user = interaction.options.getUser('user');
-const reason = interaction.options.getString('reason');
-
-const member = interaction.guild.members.cache.get(user.id);
-
-// Embed שנשלח למשתמש בפרטי
-const dmEmbed = new EmbedBuilder()
-.setTitle('⚠️ קיבלת אזהרה')
-.setColor('#ff0000')
-.addFields(
-{ name: '📌 שרת', value: interaction.guild.name },
-{ name: '📝 סיבה', value: reason },
-{ name: '👮 מודרטור', value: interaction.user.tag }
-)
-.setTimestamp();
-
-// Embed שנשלח לשרת
-const serverEmbed = new EmbedBuilder()
-.setTitle('⚠️ משתמש קיבל אזהרה')
-.setColor('#ff0000')
-.addFields(
-{ name: '👤 משתמש', value: `<@${user.id}>` },
-{ name: '👮 מודרטור', value: `<@${interaction.user.id}>` },
-{ name: '📝 סיבה', value: reason }
-)
-.setTimestamp();
-
-// ניסיון לשלוח בפרטי
-try {
-
-await user.send({ embeds: [dmEmbed] });
-
-} catch (err) {
-
-console.log('❌ לא ניתן לשלוח הודעה בפרטי למשתמש');
-
-}
-
-// שליחה בצ'אט
-await interaction.reply({
-embeds: [serverEmbed]
-});
-
-}
-
+ 
+    data: new SlashCommandBuilder()
+        .setName('warn')
+        .setDescription('Give a warning')
+ 
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('המשתמש')
+                .setRequired(true)
+        )
+ 
+        .addStringOption(option =>
+            option.setName('type')
+                .setDescription('סוג האזהרה')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Voice Mute', value: 'voice_mute' },
+                    { name: 'Timeout', value: 'timeout' },
+                    { name: 'Kick', value: 'kick' },
+                    { name: 'Ban', value: 'ban' }
+                )
+        )
+ 
+        .addStringOption(option =>
+            option.setName('reason')
+                .setDescription('סיבה')
+        ),
+ 
+    async execute(interaction) {
+ 
+        await interaction.deferReply();
+ 
+        const staffRoleId = "1496162203147964426";
+        const warnLogsChannelId = "1497959735607951430";
+ 
+        if (!interaction.member.roles.cache.has(staffRoleId)) {
+            return interaction.editReply("❌ אין לך הרשאה");
+        }
+ 
+        const user = interaction.options.getUser('user');
+        const member = await interaction.guild.members.fetch(user.id);
+ 
+        const type = interaction.options.getString('type');
+        const reason = interaction.options.getString('reason') || "אין סיבה";
+ 
+        const now = new Date();
+ 
+        const typeNames = {
+            voice_mute: "Voice Mute Warning",
+            timeout: "Timeout Warning",
+            kick: "Kick Warning",
+            ban: "Ban Warning"
+        };
+ 
+        const typeName = typeNames[type] || "Warning";
+ 
+        const warnEmbed = new EmbedBuilder()
+            .setColor("Red")
+            .setTitle(`⚠️ ${typeName}`)
+            .addFields(
+                {
+                    name: "Moderator",
+                    value: `<@${interaction.user.id}> (${interaction.user.username})`
+                },
+                {
+                    name: "Member",
+                    value: `<@${member.id}> (${member.user.username})`
+                },
+                {
+                    name: "Type",
+                    value: typeName
+                },
+                {
+                    name: "Reason",
+                    value: reason
+                },
+                {
+                    name: "Time",
+                    value: now.toLocaleString()
+                }
+            )
+            .setFooter({
+                text: `Moderation System • ${now.toLocaleString()}`
+            });
+ 
+        const logsChannel = interaction.guild.channels.cache.get(warnLogsChannelId);
+ 
+        if (logsChannel && logsChannel.isTextBased()) {
+            await logsChannel.send({ embeds: [warnEmbed] });
+        }
+ 
+        try {
+            await member.send({ embeds: [warnEmbed] });
+        } catch (err) {
+            console.log("DM failed:", err.message);
+        }
+ 
+        await interaction.editReply({
+            embeds: [warnEmbed]
+        });
+ 
+    }
+ 
 };
