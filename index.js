@@ -53,15 +53,29 @@ if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath)
         .filter(file => file.endsWith('.js'));
 
-    for (const file of commandFiles) {
-        const filePath = path.join(commandsPath, file);
-        const command = require(filePath);
+    console.log("📂 Command files found:", commandFiles);
 
-        if (command.data && command.execute) {
-            client.commands.set(command.data.name, command);
-            console.log(`✅ Loaded command: ${command.data.name}`);
+    for (const file of commandFiles) {
+        try {
+            const filePath = path.join(commandsPath, file);
+            delete require.cache[require.resolve(filePath)];
+
+            const command = require(filePath);
+
+            if (command.data && command.execute) {
+                client.commands.set(command.data.name, command);
+                console.log(`✅ Loaded command: ${command.data.name}`);
+            } else {
+                console.log(`❌ Command file broken: ${file}`);
+            }
+
+        } catch (error) {
+            console.log(`❌ Failed to load command file: ${file}`);
+            console.error(error);
         }
     }
+} else {
+    console.log("❌ commands folder not found");
 }
 
 // =======================
@@ -213,7 +227,26 @@ client.on('interactionCreate', async (interaction) => {
         // =======================
 
         if (interaction.isChatInputCommand()) {
-            const command = client.commands.get(interaction.commandName);
+            let command = client.commands.get(interaction.commandName);
+
+            // ניסיון טעינה ישיר אם הפקודה לא נטענה בהתחלה
+            if (!command) {
+                const commandPath = path.join(commandsPath, `${interaction.commandName}.js`);
+
+                if (fs.existsSync(commandPath)) {
+                    try {
+                        delete require.cache[require.resolve(commandPath)];
+                        command = require(commandPath);
+
+                        if (command.data && command.execute) {
+                            client.commands.set(command.data.name, command);
+                            console.log(`✅ Loaded command on demand: ${command.data.name}`);
+                        }
+                    } catch (error) {
+                        console.error(`❌ Failed to load command on demand: ${interaction.commandName}`, error);
+                    }
+                }
+            }
 
             if (!command) {
                 return interaction.reply({
