@@ -6,7 +6,9 @@ const {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    Collection
+    Collection,
+    ChannelType,
+    PermissionFlagsBits
 } = require('discord.js');
 
 const fs = require('fs');
