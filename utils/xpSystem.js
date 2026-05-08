@@ -6,10 +6,9 @@ const dbPath = path.join(__dirname, '..', 'xpData.json');
 // =======================
 // XP SHOP ITEMS
 // =======================
-// כאן אתה בוחר את הרולים לחנות.
 // id = מה שהבוט משתמש בו מאחורי הקלעים
 // name = מה שיופיע בכפתור ובחנות
-// price = כמה XP/Coins זה עולה
+// price = כמה XP זה עולה
 // roleId = ה-ID של הרול בדיסקורד
 
 const shopItems = [
@@ -60,10 +59,15 @@ function getUserData(userId) {
         data[userId] = {
             xp: 0,
             level: 1,
-            totalXp: 0,
-            coins: 0
+            totalXp: 0
         };
 
+        saveData(data);
+    }
+
+    // מוחק coins ישנים אם היו מהמערכת הקודמת
+    if (data[userId].coins !== undefined) {
+        delete data[userId].coins;
         saveData(data);
     }
 
@@ -81,14 +85,17 @@ function addXp(userId, amount) {
         data[userId] = {
             xp: 0,
             level: 1,
-            totalXp: 0,
-            coins: 0
+            totalXp: 0
         };
+    }
+
+    // מוחק coins ישנים אם היו
+    if (data[userId].coins !== undefined) {
+        delete data[userId].coins;
     }
 
     data[userId].xp += amount;
     data[userId].totalXp += amount;
-    data[userId].coins += amount;
 
     let leveledUp = false;
 
@@ -107,26 +114,30 @@ function addXp(userId, amount) {
 }
 
 // =======================
-// REMOVE COINS / XP SHOP BALANCE
+// REMOVE XP FOR SHOP
 // =======================
 
-function removeCoins(userId, amount) {
+function removeXp(userId, amount) {
     const data = loadData();
 
     if (!data[userId]) {
         data[userId] = {
             xp: 0,
             level: 1,
-            totalXp: 0,
-            coins: 0
+            totalXp: 0
         };
     }
 
-    if (data[userId].coins < amount) {
+    if (data[userId].coins !== undefined) {
+        delete data[userId].coins;
+    }
+
+    if (data[userId].totalXp < amount) {
+        saveData(data);
         return false;
     }
 
-    data[userId].coins -= amount;
+    data[userId].totalXp -= amount;
 
     saveData(data);
 
@@ -141,8 +152,15 @@ function getLeaderboard() {
     const data = loadData();
 
     return Object.entries(data)
+        .map(([userId, userData]) => {
+            if (userData.coins !== undefined) {
+                delete userData.coins;
+            }
+
+            return [userId, userData];
+        })
         .sort((a, b) => {
-            return b[1].level - a[1].level || b[1].xp - a[1].xp;
+            return b[1].level - a[1].level || b[1].totalXp - a[1].totalXp;
         })
         .slice(0, 10);
 }
@@ -155,6 +173,6 @@ module.exports = {
     shopItems,
     getUserData,
     addXp,
-    removeCoins,
+    removeXp,
     getLeaderboard
 };
