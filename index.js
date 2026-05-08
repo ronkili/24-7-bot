@@ -16,7 +16,7 @@ const {
     getUserData,
     getLeaderboard,
     shopItems,
-    removeCoins
+    removeXp
 } = require('./utils/xpSystem');
 
 const client = new Client({
@@ -213,15 +213,14 @@ ${reason}`
             }
 
             const userData = getUserData(userId);
+            const displayXp = userData.totalXp || userData.xp || 0;
 
             return message.reply(
 `📊 **XP Info**
 
 👤 משתמש: <@${user.id}>
 ⭐ Level: **${userData.level}**
-✨ XP: **${userData.xp}/${userData.level * 100}**
-📈 Total XP: **${userData.totalXp || 0}**
-🪙 Coins: **${userData.coins || 0}**`
+✨ XP: **${displayXp}**`
             );
         }
 
@@ -245,8 +244,9 @@ ${reason}`
 
             for (let i = 0; i < leaderboard.length; i++) {
                 const [userId, data] = leaderboard[i];
+                const displayXp = data.totalXp || data.xp || 0;
 
-                text += `**${i + 1}.** <@${userId}> — Level **${data.level}** | XP **${data.xp}** | Total XP **${data.totalXp || 0}** | Coins **${data.coins || 0}**\n`;
+                text += `**${i + 1}.** <@${userId}> — Level **${data.level}** | XP **${displayXp}**\n`;
             }
 
             return message.reply(text);
@@ -273,11 +273,13 @@ ${reason}`
 
         if (result.leveledUp) {
             try {
+                const displayXp = result.user.totalXp || result.user.xp || 0;
+
                 await message.author.send(
 `🎉 **עלית Level!**
 
 ⭐ הרמה החדשה שלך: **${result.user.level}**
-✨ XP נוכחי: **${result.user.xp}/${result.user.level * 100}**`
+✨ XP נוכחי: **${displayXp}**`
                 );
             } catch {
                 console.log('לא הצלחתי לשלוח DM על Level Up');
@@ -304,7 +306,6 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.isChatInputCommand()) {
             let command = client.commands.get(interaction.commandName);
 
-            // ניסיון טעינה ישיר אם הפקודה לא נטענה בהתחלה
             if (!command) {
                 const commandPath = path.join(commandsPath, `${interaction.commandName}.js`);
 
@@ -373,15 +374,16 @@ client.on('interactionCreate', async (interaction) => {
                 }
 
                 const userData = getUserData(interaction.user.id);
+                const userXp = userData.totalXp || userData.xp || 0;
 
-                if ((userData.coins || 0) < item.price) {
+                if (userXp < item.price) {
                     return interaction.reply({
-                        content: `❌ אין לך מספיק XP.\nיש לך **${userData.coins || 0} XP**, והרול עולה **${item.price} XP**.`,
+                        content: `❌ אין לך מספיק XP.\nיש לך **${userXp} XP**, והרול עולה **${item.price} XP**.`,
                         ephemeral: true
                     });
                 }
 
-                const paid = removeCoins(interaction.user.id, item.price);
+                const paid = removeXp(interaction.user.id, item.price);
 
                 if (!paid) {
                     return interaction.reply({
