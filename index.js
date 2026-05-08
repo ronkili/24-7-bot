@@ -14,7 +14,9 @@ const path = require('path');
 const {
     addXp,
     getUserData,
-    getLeaderboard
+    getLeaderboard,
+    shopItems,
+    removeCoins
 } = require('./utils/xpSystem');
 
 const client = new Client({
@@ -218,7 +220,8 @@ ${reason}`
 👤 משתמש: <@${user.id}>
 ⭐ Level: **${userData.level}**
 ✨ XP: **${userData.xp}/${userData.level * 100}**
-📈 Total XP: **${userData.totalXp || 0}**`
+📈 Total XP: **${userData.totalXp || 0}**
+🪙 Coins: **${userData.coins || 0}**`
             );
         }
 
@@ -243,7 +246,7 @@ ${reason}`
             for (let i = 0; i < leaderboard.length; i++) {
                 const [userId, data] = leaderboard[i];
 
-                text += `**${i + 1}.** <@${userId}> — Level **${data.level}** | XP **${data.xp}** | Total XP **${data.totalXp || 0}**\n`;
+                text += `**${i + 1}.** <@${userId}> — Level **${data.level}** | XP **${data.xp}** | Total XP **${data.totalXp || 0}** | Coins **${data.coins || 0}**\n`;
             }
 
             return message.reply(text);
@@ -288,7 +291,7 @@ ${reason}`
 
 // =======================
 // Interaction Handler
-// Slash Commands + Claim
+// Slash Commands + Claim + XP Shop
 // =======================
 
 client.on('interactionCreate', async (interaction) => {
@@ -336,6 +339,68 @@ client.on('interactionCreate', async (interaction) => {
         // =======================
 
         if (interaction.isButton()) {
+
+            // =======================
+            // XP SHOP BUTTONS
+            // =======================
+
+            if (interaction.customId.startsWith('xp_shop_buy_')) {
+
+                const itemId = interaction.customId.replace('xp_shop_buy_', '');
+                const item = shopItems.find(i => i.id === itemId);
+
+                if (!item) {
+                    return interaction.reply({
+                        content: '❌ הפריט לא נמצא בחנות.',
+                        ephemeral: true
+                    });
+                }
+
+                const role = interaction.guild.roles.cache.get(item.roleId);
+
+                if (!role) {
+                    return interaction.reply({
+                        content: '❌ הרול לא נמצא. בדוק את ה-roleId ב-xpSystem.js.',
+                        ephemeral: true
+                    });
+                }
+
+                if (interaction.member.roles.cache.has(item.roleId)) {
+                    return interaction.reply({
+                        content: '❌ כבר יש לך את הרול הזה.',
+                        ephemeral: true
+                    });
+                }
+
+                const userData = getUserData(interaction.user.id);
+
+                if ((userData.coins || 0) < item.price) {
+                    return interaction.reply({
+                        content: `❌ אין לך מספיק XP.\nיש לך **${userData.coins || 0} XP**, והרול עולה **${item.price} XP**.`,
+                        ephemeral: true
+                    });
+                }
+
+                const paid = removeCoins(interaction.user.id, item.price);
+
+                if (!paid) {
+                    return interaction.reply({
+                        content: '❌ אין לך מספיק XP.',
+                        ephemeral: true
+                    });
+                }
+
+                await interaction.member.roles.add(role);
+
+                return interaction.reply({
+                    content: `✅ קנית את הרול **${item.name}** ב־**${item.price} XP**!`,
+                    ephemeral: true
+                });
+            }
+
+            // =======================
+            // CLAIM BUTTONS
+            // =======================
 
             if (!interaction.customId.startsWith('claim_help')) {
                 return interaction.reply({
