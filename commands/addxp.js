@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { addXp, getUserData } = require('../utils/xpSystem');
 
 module.exports = {
@@ -19,6 +19,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
+
         const staffRoleId = "1496162203147964426";
 
         if (!interaction.member.roles.cache.has(staffRoleId)) {
@@ -41,22 +42,23 @@ module.exports = {
         const result = addXp(user.id, amount);
         const userData = getUserData(user.id);
 
+        const displayXp = userData.totalXp || userData.xp || 0;
+
         await interaction.reply({
             content:
 `✅ נוסף **${amount} XP** ל־<@${user.id}>
 
 ⭐ Level: **${userData.level}**
-✨ XP: **${userData.xp}/${userData.level * 100}**
-📈 Total XP: **${userData.totalXp}**
-🪙 Coins: **${userData.coins}**`
+✨ XP: **${displayXp}**`
         });
 
         if (result.leveledUp) {
             try {
                 await user.send(
-`🎉 עלית Level!
+`🎉 **עלית Level!**
 
-⭐ הרמה החדשה שלך: **${result.user.level}**`
+⭐ הרמה החדשה שלך: **${result.user.level}
+✨ XP נוכחי: **${result.user.totalXp || result.user.xp || 0}**`
                 );
             } catch {}
         }
