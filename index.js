@@ -44,6 +44,7 @@ const memberRoleId = "1496162210542518346";
 const helpCooldown = new Map();
 const xpCooldown = new Map();
 const handledMessages = new Set();
+const verifyCodes = new Map();
 
 const helpCooldownTime = 10 * 1000;
 const xpCooldownTime = 60 * 1000;
@@ -293,7 +294,7 @@ ${reason}`
 
 // =======================
 // Interaction Handler
-// Slash Commands + Claim + XP Shop
+// Slash Commands + Verify + Claim + XP Shop
 // =======================
 
 client.on('interactionCreate', async (interaction) => {
@@ -340,6 +341,98 @@ client.on('interactionCreate', async (interaction) => {
         // =======================
 
         if (interaction.isButton()) {
+
+            // =======================
+            // VERIFY START BUTTON
+            // =======================
+
+            if (interaction.customId === 'start_verify') {
+
+                if (interaction.member.roles.cache.has(memberRoleId)) {
+                    return interaction.reply({
+                        content: '✅ אתה כבר מאומת.',
+                        ephemeral: true
+                    });
+                }
+
+                const correctCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+                let codes = [correctCode];
+
+                while (codes.length < 4) {
+                    const fakeCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+                    if (!codes.includes(fakeCode)) {
+                        codes.push(fakeCode);
+                    }
+                }
+
+                codes = codes.sort(() => Math.random() - 0.5);
+
+                verifyCodes.set(interaction.user.id, correctCode);
+
+                setTimeout(() => {
+                    verifyCodes.delete(interaction.user.id);
+                }, 2 * 60 * 1000);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        codes.map(code =>
+                            new ButtonBuilder()
+                                .setCustomId(`verify_answer_${code}`)
+                                .setLabel(code)
+                                .setStyle(ButtonStyle.Primary)
+                        )
+                    );
+
+                return interaction.reply({
+                    content: `Your Verification Code Is: **${correctCode}**`,
+                    components: [row],
+                    ephemeral: true
+                });
+            }
+
+            // =======================
+            // VERIFY ANSWER BUTTONS
+            // =======================
+
+            if (interaction.customId.startsWith('verify_answer_')) {
+
+                const selectedCode = interaction.customId.replace('verify_answer_', '');
+                const correctCode = verifyCodes.get(interaction.user.id);
+
+                if (!correctCode) {
+                    return interaction.reply({
+                        content: '❌ אין לך אימות פעיל. לחץ שוב על Verify.',
+                        ephemeral: true
+                    });
+                }
+
+                if (selectedCode !== correctCode) {
+                    return interaction.reply({
+                        content: '❌ קוד שגוי. נסה שוב.',
+                        ephemeral: true
+                    });
+                }
+
+                const memberRole = interaction.guild.roles.cache.get(memberRoleId);
+
+                if (!memberRole) {
+                    return interaction.reply({
+                        content: '❌ רול Member לא נמצא.',
+                        ephemeral: true
+                    });
+                }
+
+                await interaction.member.roles.add(memberRole);
+
+                verifyCodes.delete(interaction.user.id);
+
+                return interaction.update({
+                    content: '✅ אומתת בהצלחה! קיבלת גישה לשרת.',
+                    components: []
+                });
+            }
 
             // =======================
             // XP SHOP BUTTONS
