@@ -47,8 +47,8 @@ module.exports = {
 
         try {
 
-            const staffRoleId = "1496162203147964426";
-            const logsChannelId = "1498316795260567612";
+            const staffRoleId = "1502608350364565695";
+            const logsChannelId = "1502608488939917362";
 
             if (!interaction.member.roles.cache.has(staffRoleId)) {
                 return interaction.editReply({
