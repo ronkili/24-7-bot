@@ -16,19 +16,19 @@ const shopItems = [
         id: 'rich',
         name: 'rich',
         price: 1500,
-        roleId: '1496162222978629736'
+        roleId: '1502608372153843883'
     },
     {
         id: 'diamond',
         name: 'diamond',
         price: 2500,
-        roleId: '1496162226027888783'
+        roleId: '1502608375408623646'
     },
     {
         id: 'special',
         name: 'Special',
         price: 4500,
-        roleId: '1496162228095942801'
+        roleId: '1502608377354780794'
     }
 ];
 
