@@ -88,13 +88,35 @@ if (fs.existsSync(commandsPath)) {
 }
 
 // =======================
-// Ready
+// Ready + Bot Status
 // =======================
 
 client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
     console.log("✅ RUNNING NEW INDEX WITHOUT HELP_SOURCE");
+
+    updateBotStatus();
+
+    setInterval(() => {
+        updateBotStatus();
+    }, 60 * 1000);
 });
+
+function updateBotStatus() {
+    const guild = client.guilds.cache.first();
+
+    if (!guild) return;
+
+    client.user.setPresence({
+        activities: [
+            {
+                name: `${guild.memberCount} members`,
+                type: ActivityType.Watching
+            }
+        ],
+        status: 'online'
+    });
+}
 
 // =======================
 // Message Handler
