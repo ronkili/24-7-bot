@@ -13,20 +13,20 @@ const dbPath = path.join(__dirname, '..', 'xpData.json');
 
 const shopItems = [
     {
-        id: 'rich',
-        name: 'rich',
+        id: '💸rich',
+        name: '💸rich',
         price: 5000,
         roleId: '1502608372153843883'
     },
     {
-        id: 'diamond',
-        name: 'diamond',
+        id: '💎diamond',
+        name: '💎diamond',
         price: 8000,
         roleId: '1502608375408623646'
     },
     {
-        id: 'special',
-        name: 'Special',
+        id: '👨special',
+        name: '👨Special',
         price: 10000,
         roleId: '1502608377354780794'
     }
