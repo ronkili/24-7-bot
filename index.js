@@ -36,7 +36,7 @@ const client = new Client({
 
 const helpChannelId = "1502608513795362856"; 
 const staffRoleId = "1502608350364565695";
-const logsChannelId = "1497632395808215130";
+const logsChannelId = "1502608484389359617";
 const memberRoleId = "1502608358463766559";
 
 // =======================
