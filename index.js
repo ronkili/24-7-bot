@@ -7,7 +7,8 @@ const {
     ButtonBuilder,
     ButtonStyle,
     Collection,
-    ActivityType
+    ChannelType,
+    PermissionFlagsBits
 } = require('discord.js');
 
 const fs = require('fs');
@@ -33,10 +34,10 @@ const client = new Client({
 // IDs
 // =======================
 
-const helpChannelId = "1502608513795362856"; 
-const staffRoleId = "1502608350364565695";
-const logsChannelId = "1502608484389359617";
-const memberRoleId = "1502608358463766559";
+const helpChannelId = "1496162286178406461"; 
+const staffRoleId = "1496162203147964426";
+const logsChannelId = "1497632395808215130";
+const memberRoleId = "1496162210542518346";
 
 // =======================
 // Cooldowns + Locks
@@ -88,35 +89,59 @@ if (fs.existsSync(commandsPath)) {
 }
 
 // =======================
-// Ready + Bot Status
+// Ready
 // =======================
 
 client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
     console.log("✅ RUNNING NEW INDEX WITHOUT HELP_SOURCE");
-
-    updateBotStatus();
-
-    setInterval(() => {
-        updateBotStatus();
-    }, 60 * 1000);
 });
 
-function updateBotStatus() {
-    const guild = client.guilds.cache.first();
+// =======================
+// Voice XP System
+// כל 5 דקות מי שבשיחה מקבל 15 XP
+// =======================
 
-    if (!guild) return;
+setInterval(async () => {
 
-    client.user.setPresence({
-        activities: [
-            {
-                name: `${guild.memberCount} members`,
-                type: ActivityType.Watching
-            }
-        ],
-        status: 'online'
-    });
-}
+    try {
+
+        client.guilds.cache.forEach(async (guild) => {
+
+            guild.voiceStates.cache.forEach(async (voiceState) => {
+
+                const member = voiceState.member;
+
+                if (!member) return;
+                if (member.user.bot) return;
+                if (!voiceState.channel) return;
+
+                const result = addXp(member.id, 15);
+
+                if (result.leveledUp) {
+                    try {
+                        const displayXp = result.user.totalXp || result.user.xp || 0;
+
+                        await member.send(
+`🎉 **עלית Level!**
+
+⭐ הרמה החדשה שלך: **${result.user.level}**
+✨ XP נוכחי: **${displayXp}**`
+                        );
+                    } catch {
+                        console.log('לא הצלחתי לשלוח DM על Level Up מ-Voice XP');
+                    }
+                }
+
+            });
+
+        });
+
+    } catch (error) {
+        console.error('❌ Voice XP Error:', error);
+    }
+
+}, 5 * 60 * 1000);
 
 // =======================
 // Message Handler
