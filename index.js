@@ -45,6 +45,7 @@ const ticketStaffRoleId = "1502608354873184286";
 const logsChannelId = "1502608484389359617";
 const memberRoleId = "1502608358463766559";
 const ticketLogsChannelId = "1502608482531016874";
+
 // =======================
 // Cooldowns + Locks
 // =======================
@@ -160,7 +161,7 @@ async function closeTicket(interaction, reason) {
     }
 
     const ownerId = getTicketOwnerId(channel);
-    const logsChannel = interaction.guild.channels.cache.get(logsChannelId);
+    const logsChannel = interaction.guild.channels.cache.get(ticketLogsChannelId);
 
     await interaction.reply({
         content: '🔒 סוגר את הטיקט ושולח Transcript...',
@@ -488,7 +489,7 @@ client.on('interactionCreate', async (interaction) => {
             const rating = parts[3];
 
             const guild = client.guilds.cache.get(guildId);
-            const logsChannel = guild?.channels.cache.get(logsChannelId);
+            const logsChannel = guild?.channels.cache.get(ticketLogsChannelId);
 
             if (logsChannel && logsChannel.isTextBased()) {
                 await logsChannel.send(
@@ -797,7 +798,7 @@ client.on('interactionCreate', async (interaction) => {
 `${ticketData.emoji} **טיקט חדש נפתח**
 
 👤 משתמש: <@${interaction.user.id}>
-📌 סוג טיקט: **${ticketData.name}
+📌 סוג טיקט: **${ticketData.name}**
 
 <@&${ticketStaffRoleId}>`,
                     components: [row]
