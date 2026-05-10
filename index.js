@@ -9,7 +9,11 @@ const {
     Collection,
     ChannelType,
     PermissionFlagsBits,
-    ActivityType
+    ActivityType,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    AttachmentBuilder
 } = require('discord.js');
 
 const fs = require('fs');
@@ -37,6 +41,7 @@ const client = new Client({
 
 const helpChannelId = "1502608513795362856"; 
 const staffRoleId = "1502608350364565695";
+const ticketStaffRoleId = "1502608354873184286";
 const logsChannelId = "1502608484389359617";
 const memberRoleId = "1502608358463766559";
 
@@ -99,6 +104,146 @@ client.once('ready', () => {
 });
 
 // =======================
+// Ticket Helper Functions
+// =======================
+
+function isTicketStaff(member) {
+    return member.roles.cache.has(ticketStaffRoleId);
+}
+
+function getTicketOwnerId(channel) {
+    if (!channel.topic) return null;
+
+    const match = channel.topic.match(/ticketOwner:(\d+)/);
+    return match ? match[1] : null;
+}
+
+async function createTranscript(channel) {
+    const messages = await channel.messages.fetch({ limit: 100 });
+
+    const sortedMessages = [...messages.values()].sort(
+        (a, b) => a.createdTimestamp - b.createdTimestamp
+    );
+
+    let transcript = `Transcript for #${channel.name}\n`;
+    transcript += `Channel ID: ${channel.id}\n`;
+    transcript += `Created At: ${new Date().toLocaleString()}\n\n`;
+
+    for (const msg of sortedMessages) {
+        transcript += `[${msg.createdAt.toLocaleString()}] ${msg.author.tag}: ${msg.content || '[No text]'}\n`;
+
+        if (msg.attachments.size > 0) {
+            msg.attachments.forEach(attachment => {
+                transcript += `Attachment: ${attachment.url}\n`;
+            });
+        }
+    }
+
+    return Buffer.from(transcript, 'utf8');
+}
+
+async function closeTicket(interaction, reason) {
+    const channel = interaction.channel;
+
+    if (!channel.name.startsWith('ticket-')) {
+        return interaction.reply({
+            content: '❌ זה לא ערוץ טיקט.',
+            ephemeral: true
+        });
+    }
+
+    if (!isTicketStaff(interaction.member)) {
+        return interaction.reply({
+            content: '❌ רק Staff Tester יכולים לסגור טיקטים.',
+            ephemeral: true
+        });
+    }
+
+    const ownerId = getTicketOwnerId(channel);
+    const logsChannel = interaction.guild.channels.cache.get(logsChannelId);
+
+    await interaction.reply({
+        content: '🔒 סוגר את הטיקט ושולח Transcript...',
+        ephemeral: false
+    });
+
+    const transcriptBuffer = await createTranscript(channel).catch(() => null);
+
+    if (logsChannel && logsChannel.isTextBased()) {
+        const files = [];
+
+        if (transcriptBuffer) {
+            files.push(
+                new AttachmentBuilder(transcriptBuffer, {
+                    name: `${channel.name}-transcript.txt`
+                })
+            );
+        }
+
+        await logsChannel.send({
+            content:
+`📁 **Ticket Closed**
+
+🎫 טיקט: ${channel.name}
+👤 נסגר על ידי: <@${interaction.user.id}>
+📝 סיבה: ${reason}
+👥 פותח הטיקט: ${ownerId ? `<@${ownerId}>` : 'לא נמצא'}`,
+            files
+        }).catch(() => {});
+    }
+
+    if (ownerId) {
+        const user = await client.users.fetch(ownerId).catch(() => null);
+
+        if (user) {
+            const ratingRow = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`ticket_rating_${interaction.guild.id}_1`)
+                        .setLabel('1')
+                        .setEmoji('⭐')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`ticket_rating_${interaction.guild.id}_2`)
+                        .setLabel('2')
+                        .setEmoji('⭐')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`ticket_rating_${interaction.guild.id}_3`)
+                        .setLabel('3')
+                        .setEmoji('⭐')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`ticket_rating_${interaction.guild.id}_4`)
+                        .setLabel('4')
+                        .setEmoji('⭐')
+                        .setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder()
+                        .setCustomId(`ticket_rating_${interaction.guild.id}_5`)
+                        .setLabel('5')
+                        .setEmoji('⭐')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+            await user.send({
+                content:
+`⭐ הטיקט שלך בשרת **${interaction.guild.name}** נסגר.
+
+📝 סיבה:
+${reason}
+
+איך הייתה החוויה שלך?`,
+                components: [ratingRow]
+            }).catch(() => {});
+        }
+    }
+
+    setTimeout(() => {
+        channel.delete().catch(() => {});
+    }, 5000);
+}
+
+// =======================
 // Voice XP System
 // כל 5 דקות מי שבשיחה מקבל 15 XP
 // =======================
@@ -153,10 +298,6 @@ client.on('messageCreate', async (message) => {
     try {
         if (message.author.bot) return;
         if (!message.guild) return;
-
-        // =======================
-        // !h Help System
-        // =======================
 
         if (message.content.toLowerCase().startsWith('!h')) {
 
@@ -241,10 +382,6 @@ ${reason}`
             return;
         }
 
-        // =======================
-        // !xp command - רק Staff
-        // =======================
-
         if (message.content.toLowerCase().startsWith('!xp')) {
 
             if (!message.member.roles.cache.has(staffRoleId)) {
@@ -274,10 +411,6 @@ ${reason}`
             );
         }
 
-        // =======================
-        // !leaderboard command - רק Staff
-        // =======================
-
         if (message.content.toLowerCase() === '!leaderboard') {
 
             if (!message.member.roles.cache.has(staffRoleId)) {
@@ -301,10 +434,6 @@ ${reason}`
 
             return message.reply(text);
         }
-
-        // =======================
-        // XP System
-        // =======================
 
         if (message.content.startsWith('!')) return;
 
@@ -350,6 +479,48 @@ client.on('interactionCreate', async (interaction) => {
     try {
 
         // =======================
+        // Rating Button
+        // =======================
+
+        if (interaction.isButton() && interaction.customId.startsWith('ticket_rating_')) {
+            const parts = interaction.customId.split('_');
+            const guildId = parts[2];
+            const rating = parts[3];
+
+            const guild = client.guilds.cache.get(guildId);
+            const logsChannel = guild?.channels.cache.get(logsChannelId);
+
+            if (logsChannel && logsChannel.isTextBased()) {
+                await logsChannel.send(
+`⭐ **Ticket Rating**
+
+👤 משתמש: <@${interaction.user.id}>
+⭐ דירוג: **${rating}/5**`
+                ).catch(() => {});
+            }
+
+            return interaction.update({
+                content: `✅ תודה על הדירוג שלך! דירגת **${rating}/5** ⭐`,
+                components: []
+            });
+        }
+
+        // =======================
+        // Close Ticket Modal
+        // =======================
+
+        if (interaction.isModalSubmit()) {
+
+            if (interaction.customId === 'close_ticket_modal') {
+                const reason = interaction.fields.getTextInputValue('close_reason');
+
+                await closeTicket(interaction, reason);
+                return;
+            }
+
+        }
+
+        // =======================
         // Slash Commands
         // =======================
 
@@ -390,10 +561,6 @@ client.on('interactionCreate', async (interaction) => {
         // =======================
 
         if (interaction.isButton()) {
-
-            // =======================
-            // VERIFY START BUTTON
-            // =======================
 
             if (interaction.customId === 'start_verify') {
 
@@ -441,10 +608,6 @@ client.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // =======================
-            // VERIFY ANSWER BUTTONS
-            // =======================
-
             if (interaction.customId.startsWith('verify_answer_')) {
 
                 const selectedCode = interaction.customId.replace('verify_answer_', '');
@@ -482,10 +645,6 @@ client.on('interactionCreate', async (interaction) => {
                     components: []
                 });
             }
-
-            // =======================
-            // XP SHOP BUTTONS
-            // =======================
 
             if (interaction.customId.startsWith('xp_shop_buy_')) {
 
@@ -574,7 +733,7 @@ client.on('interactionCreate', async (interaction) => {
                 const ticketData = ticketTypes[interaction.customId];
 
                 const existingChannel = interaction.guild.channels.cache.find(channel =>
-                    channel.name === `ticket-${interaction.user.username.toLowerCase()}`
+                    channel.topic?.includes(`ticketOwner:${interaction.user.id}`)
                 );
 
                 if (existingChannel) {
@@ -584,9 +743,15 @@ client.on('interactionCreate', async (interaction) => {
                     });
                 }
 
+                const safeName = interaction.user.username
+                    .toLowerCase()
+                    .replace(/[^a-z0-9א-ת]/g, '-')
+                    .slice(0, 20);
+
                 const ticketChannel = await interaction.guild.channels.create({
-                    name: `ticket-${interaction.user.username}`,
+                    name: `ticket-${safeName}`,
                     type: ChannelType.GuildText,
+                    topic: `ticketOwner:${interaction.user.id} | ticketType:${ticketData.name}`,
                     permissionOverwrites: [
                         {
                             id: interaction.guild.id,
@@ -601,15 +766,22 @@ client.on('interactionCreate', async (interaction) => {
                             ]
                         },
                         {
-                            id: staffRoleId,
+                            id: ticketStaffRoleId,
                             allow: [
                                 PermissionFlagsBits.ViewChannel,
                                 PermissionFlagsBits.SendMessages,
-                                PermissionFlagsBits.ReadMessageHistory
+                                PermissionFlagsBits.ReadMessageHistory,
+                                PermissionFlagsBits.ManageMessages
                             ]
                         }
                     ]
                 });
+
+                const claimTicketButton = new ButtonBuilder()
+                    .setCustomId('claim_ticket')
+                    .setLabel('Claim Ticket')
+                    .setEmoji('🙋')
+                    .setStyle(ButtonStyle.Success);
 
                 const closeButton = new ButtonBuilder()
                     .setCustomId('close_ticket')
@@ -618,16 +790,16 @@ client.on('interactionCreate', async (interaction) => {
                     .setStyle(ButtonStyle.Danger);
 
                 const row = new ActionRowBuilder()
-                    .addComponents(closeButton);
+                    .addComponents(claimTicketButton, closeButton);
 
                 await ticketChannel.send({
                     content:
 `${ticketData.emoji} **טיקט חדש נפתח**
 
 👤 משתמש: <@${interaction.user.id}>
-📌 סוג טיקט: **${ticketData.name}**
+📌 סוג טיקט: **${ticketData.name}
 
-<@&${staffRoleId}>`,
+<@&${ticketStaffRoleId}>`,
                     components: [row]
                 });
 
@@ -638,32 +810,79 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             // =======================
-            // CLOSE TICKET
+            // CLAIM TICKET
             // =======================
 
-            if (interaction.customId === 'close_ticket') {
+            if (interaction.customId === 'claim_ticket') {
 
-                if (!interaction.channel.name.startsWith('ticket-')) {
+                if (!isTicketStaff(interaction.member)) {
                     return interaction.reply({
-                        content: '❌ זה לא ערוץ טיקט.',
+                        content: '❌ רק Staff Tester יכולים לקחת טיקטים.',
                         ephemeral: true
                     });
                 }
 
-                await interaction.reply({
-                    content: '🔒 הטיקט ייסגר בעוד 5 שניות...',
-                    ephemeral: false
+                const claimedButton = new ButtonBuilder()
+                    .setCustomId('claimed_ticket')
+                    .setLabel(`Claimed by ${interaction.user.username}`)
+                    .setEmoji('🙋')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true);
+
+                const closeButton = new ButtonBuilder()
+                    .setCustomId('close_ticket')
+                    .setLabel('Close Ticket')
+                    .setEmoji('🔒')
+                    .setStyle(ButtonStyle.Danger);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(claimedButton, closeButton);
+
+                await interaction.update({
+                    components: [row]
                 });
 
-                setTimeout(() => {
-                    interaction.channel.delete().catch(() => {});
-                }, 5000);
+                await interaction.channel.send(
+`🙋 הטיקט נלקח על ידי <@${interaction.user.id}>`
+                ).catch(() => {});
 
                 return;
             }
 
             // =======================
-            // CLAIM BUTTONS
+            // CLOSE TICKET WITH REASON
+            // =======================
+
+            if (interaction.customId === 'close_ticket') {
+
+                if (!isTicketStaff(interaction.member)) {
+                    return interaction.reply({
+                        content: '❌ רק Staff Tester יכולים לסגור טיקטים.',
+                        ephemeral: true
+                    });
+                }
+
+                const modal = new ModalBuilder()
+                    .setCustomId('close_ticket_modal')
+                    .setTitle('Close Ticket');
+
+                const reasonInput = new TextInputBuilder()
+                    .setCustomId('close_reason')
+                    .setLabel('סיבה לסגירת הטיקט')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setPlaceholder('כתוב כאן את הסיבה...')
+                    .setRequired(true);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(reasonInput);
+
+                modal.addComponents(row);
+
+                return interaction.showModal(modal);
+            }
+
+            // =======================
+            // CLAIM HELP BUTTONS
             // =======================
 
             if (!interaction.customId.startsWith('claim_help')) {
