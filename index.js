@@ -45,6 +45,7 @@ const ticketStaffRoleId = "1502608354873184286";
 const logsChannelId = "1502608484389359617";
 const memberRoleId = "1502608358463766559";
 const ticketLogsChannelId = "1502608482531016874";
+const ticketCategoryId = "1502608433701191802";
 
 // =======================
 // Cooldowns + Locks
@@ -752,6 +753,7 @@ client.on('interactionCreate', async (interaction) => {
                 const ticketChannel = await interaction.guild.channels.create({
                     name: `ticket-${safeName}`,
                     type: ChannelType.GuildText,
+                    parent: ticketCategoryId,
                     topic: `ticketOwner:${interaction.user.id} | ticketType:${ticketData.name}`,
                     permissionOverwrites: [
                         {
