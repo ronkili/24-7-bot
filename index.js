@@ -343,7 +343,7 @@ ${reason}`
 
 // =======================
 // Interaction Handler
-// Slash Commands + Verify + Claim + XP Shop
+// Slash Commands + Verify + Tickets + Claim + XP Shop
 // =======================
 
 client.on('interactionCreate', async (interaction) => {
@@ -540,6 +540,126 @@ client.on('interactionCreate', async (interaction) => {
                     content: `✅ קנית את הרול **${item.name}** ב־**${item.price} XP**!`,
                     ephemeral: true
                 });
+            }
+
+            // =======================
+            // TICKET BUTTONS
+            // =======================
+
+            const ticketTypes = {
+                ticket_staff_test: {
+                    name: 'בחינה-לצוות',
+                    emoji: '❤'
+                },
+                ticket_complaint: {
+                    name: 'להתלונן',
+                    emoji: '❗'
+                },
+                ticket_partner: {
+                    name: 'שתפ',
+                    emoji: '🤝'
+                },
+                ticket_help: {
+                    name: 'עזרה',
+                    emoji: '🙏'
+                },
+                ticket_other: {
+                    name: 'אחר',
+                    emoji: '❓'
+                }
+            };
+
+            if (ticketTypes[interaction.customId]) {
+
+                const ticketData = ticketTypes[interaction.customId];
+
+                const existingChannel = interaction.guild.channels.cache.find(channel =>
+                    channel.name === `ticket-${interaction.user.username.toLowerCase()}`
+                );
+
+                if (existingChannel) {
+                    return interaction.reply({
+                        content: `❌ כבר יש לך טיקט פתוח: ${existingChannel}`,
+                        ephemeral: true
+                    });
+                }
+
+                const ticketChannel = await interaction.guild.channels.create({
+                    name: `ticket-${interaction.user.username}`,
+                    type: ChannelType.GuildText,
+                    permissionOverwrites: [
+                        {
+                            id: interaction.guild.id,
+                            deny: [PermissionFlagsBits.ViewChannel]
+                        },
+                        {
+                            id: interaction.user.id,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.SendMessages,
+                                PermissionFlagsBits.ReadMessageHistory
+                            ]
+                        },
+                        {
+                            id: staffRoleId,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.SendMessages,
+                                PermissionFlagsBits.ReadMessageHistory
+                            ]
+                        }
+                    ]
+                });
+
+                const closeButton = new ButtonBuilder()
+                    .setCustomId('close_ticket')
+                    .setLabel('Close Ticket')
+                    .setEmoji('🔒')
+                    .setStyle(ButtonStyle.Danger);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(closeButton);
+
+                await ticketChannel.send({
+                    content:
+`${ticketData.emoji} **טיקט חדש נפתח**
+
+👤 משתמש: <@${interaction.user.id}>
+📌 סוג טיקט: **${ticketData.name}**
+
+<@&${staffRoleId}>`,
+                    components: [row]
+                });
+
+                return interaction.reply({
+                    content: `✅ הטיקט שלך נפתח: ${ticketChannel}`,
+                    ephemeral: true
+                });
+            }
+
+            // =======================
+            // CLOSE TICKET
+            // =======================
+
+            if (interaction.customId === 'close_ticket') {
+
+                if (!interaction.channel.name.startsWith('ticket-')) {
+                    return interaction.reply({
+                        content: '❌ זה לא ערוץ טיקט.',
+                        ephemeral: true
+                    });
+                }
+
+                await interaction.reply({
+                    content: '🔒 הטיקט ייסגר בעוד 5 שניות...',
+                    ephemeral: false
+                });
+
+                setTimeout(() => {
+                    interaction.channel.delete().catch(() => {});
+                }, 5000);
+
+                return;
             }
 
             // =======================
