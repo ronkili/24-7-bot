@@ -34,10 +34,10 @@ const client = new Client({
 // IDs
 // =======================
 
-const helpChannelId = "1496162286178406461"; 
-const staffRoleId = "1496162203147964426";
-const logsChannelId = "1497632395808215130";
-const memberRoleId = "1496162210542518346";
+const helpChannelId = "1502608513795362856"; 
+const staffRoleId = "1502608350364565695";
+const logsChannelId = "1502608484389359617";
+const memberRoleId = "1502608358463766559";
 
 // =======================
 // Cooldowns + Locks
