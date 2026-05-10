@@ -44,7 +44,7 @@ const staffRoleId = "1502608350364565695";
 const ticketStaffRoleId = "1502608354873184286";
 const logsChannelId = "1502608484389359617";
 const memberRoleId = "1502608358463766559";
-
+const ticketLogsChannelId = "1502608482531016874";
 // =======================
 // Cooldowns + Locks
 // =======================
