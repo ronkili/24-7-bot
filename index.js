@@ -9,6 +9,7 @@ const {
     Collection,
     ChannelType,
     PermissionFlagsBits,
+    ActivityType,
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
@@ -495,7 +496,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         // =======================
-        // Close Ticket Modal
+        // Modals
         // =======================
 
         if (interaction.isModalSubmit()) {
@@ -504,6 +505,90 @@ client.on('interactionCreate', async (interaction) => {
 
                 await closeTicket(interaction, reason);
                 return;
+            }
+
+            if (interaction.customId === 'ticket_other_modal') {
+                const reason = interaction.fields.getTextInputValue('ticket_other_reason');
+
+                const existingChannel = interaction.guild.channels.cache.find(channel =>
+                    channel.topic?.includes(`ticketOwner:${interaction.user.id}`)
+                );
+
+                if (existingChannel) {
+                    return interaction.reply({
+                        content: `❌ כבר יש לך טיקט פתוח: ${existingChannel}`,
+                        ephemeral: true
+                    });
+                }
+
+                const safeName = interaction.user.username
+                    .toLowerCase()
+                    .replace(/[^a-z0-9א-ת]/g, '-')
+                    .slice(0, 20);
+
+                const ticketChannel = await interaction.guild.channels.create({
+                    name: `ticket-${safeName}`,
+                    type: ChannelType.GuildText,
+                    parent: ticketCategoryId,
+                    topic: `ticketOwner:${interaction.user.id} | ticketType:אחר`,
+                    permissionOverwrites: [
+                        {
+                            id: interaction.guild.id,
+                            deny: [PermissionFlagsBits.ViewChannel]
+                        },
+                        {
+                            id: interaction.user.id,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.SendMessages,
+                                PermissionFlagsBits.ReadMessageHistory
+                            ]
+                        },
+                        {
+                            id: ticketStaffRoleId,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.SendMessages,
+                                PermissionFlagsBits.ReadMessageHistory,
+                                PermissionFlagsBits.ManageMessages
+                            ]
+                        }
+                    ]
+                });
+
+                const claimTicketButton = new ButtonBuilder()
+                    .setCustomId('claim_ticket')
+                    .setLabel('Claim Ticket')
+                    .setEmoji('🙋')
+                    .setStyle(ButtonStyle.Success);
+
+                const closeButton = new ButtonBuilder()
+                    .setCustomId('close_ticket')
+                    .setLabel('Close Ticket')
+                    .setEmoji('🔒')
+                    .setStyle(ButtonStyle.Danger);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(claimTicketButton, closeButton);
+
+                await ticketChannel.send({
+                    content:
+`❓ **טיקט חדש נפתח**
+
+👤 משתמש: <@${interaction.user.id}>
+📌 סוג טיקט: **אחר**
+
+📝 סיבה:
+${reason}
+
+<@&${ticketStaffRoleId}>`,
+                    components: [row]
+                });
+
+                return interaction.reply({
+                    content: `✅ הטיקט שלך נפתח: ${ticketChannel}`,
+                    ephemeral: true
+                });
             }
         }
 
@@ -690,6 +775,30 @@ client.on('interactionCreate', async (interaction) => {
                     content: `✅ קנית את הרול **${item.name}** ב־**${item.price} XP**!`,
                     ephemeral: true
                 });
+            }
+
+            // =======================
+            // OTHER TICKET MODAL
+            // =======================
+
+            if (interaction.customId === 'ticket_other') {
+                const modal = new ModalBuilder()
+                    .setCustomId('ticket_other_modal')
+                    .setTitle('פתיחת טיקט אחר');
+
+                const reasonInput = new TextInputBuilder()
+                    .setCustomId('ticket_other_reason')
+                    .setLabel('מה הסיבה של הטיקט?')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setPlaceholder('כתוב כאן את הסיבה לפתיחת הטיקט...')
+                    .setRequired(true);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(reasonInput);
+
+                modal.addComponents(row);
+
+                return interaction.showModal(modal);
             }
 
             // =======================
