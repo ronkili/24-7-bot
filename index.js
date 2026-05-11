@@ -9,7 +9,6 @@ const {
     Collection,
     ChannelType,
     PermissionFlagsBits,
-    ActivityType,
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
@@ -71,7 +70,7 @@ if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath)
         .filter(file => file.endsWith('.js'));
 
-    console.log("נ“‚ Command files found:", commandFiles);
+    console.log("📂 Command files found:", commandFiles);
 
     for (const file of commandFiles) {
         try {
@@ -82,18 +81,18 @@ if (fs.existsSync(commandsPath)) {
 
             if (command.data && command.execute) {
                 client.commands.set(command.data.name, command);
-                console.log(`ג… Loaded command: ${command.data.name}`);
+                console.log(`✅ Loaded command: ${command.data.name}`);
             } else {
-                console.log(`ג Command file broken: ${file}`);
+                console.log(`❌ Command file broken: ${file}`);
             }
 
         } catch (error) {
-            console.log(`ג Failed to load command file: ${file}`);
+            console.log(`❌ Failed to load command file: ${file}`);
             console.error(error);
         }
     }
 } else {
-    console.log("ג commands folder not found");
+    console.log("❌ commands folder not found");
 }
 
 // =======================
@@ -101,8 +100,8 @@ if (fs.existsSync(commandsPath)) {
 // =======================
 
 client.once('ready', () => {
-    console.log(`ג… Logged in as ${client.user.tag}`);
-    console.log("ג… RUNNING NEW INDEX WITHOUT HELP_SOURCE");
+    console.log(`✅ Logged in as ${client.user.tag}`);
+    console.log("✅ RUNNING NEW INDEX WITHOUT HELP_SOURCE");
 });
 
 // =======================
@@ -149,14 +148,14 @@ async function closeTicket(interaction, reason) {
 
     if (!channel.name.startsWith('ticket-')) {
         return interaction.reply({
-            content: 'ג ׳–׳” ׳׳ ׳¢׳¨׳•׳¥ ׳˜׳™׳§׳˜.',
+            content: '❌ זה לא ערוץ טיקט.',
             ephemeral: true
         });
     }
 
     if (!isTicketStaff(interaction.member)) {
         return interaction.reply({
-            content: 'ג ׳¨׳§ Staff Tester ׳™׳›׳•׳׳™׳ ׳׳¡׳’׳•׳¨ ׳˜׳™׳§׳˜׳™׳.',
+            content: '❌ רק Staff Tester יכולים לסגור טיקטים.',
             ephemeral: true
         });
     }
@@ -165,7 +164,7 @@ async function closeTicket(interaction, reason) {
     const logsChannel = interaction.guild.channels.cache.get(ticketLogsChannelId);
 
     await interaction.reply({
-        content: 'נ”’ ׳¡׳•׳’׳¨ ׳׳× ׳”׳˜׳™׳§׳˜ ׳•׳©׳•׳׳— Transcript...',
+        content: '🔒 סוגר את הטיקט ושולח Transcript...',
         ephemeral: false
     });
 
@@ -184,12 +183,12 @@ async function closeTicket(interaction, reason) {
 
         await logsChannel.send({
             content:
-`נ“ **Ticket Closed**
+`📁 **Ticket Closed**
 
-נ« ׳˜׳™׳§׳˜: ${channel.name}
-נ‘₪ ׳ ׳¡׳’׳¨ ׳¢׳ ׳™׳“׳™: <@${interaction.user.id}>
-נ“ ׳¡׳™׳‘׳”: ${reason}
-נ‘¥ ׳₪׳•׳×׳— ׳”׳˜׳™׳§׳˜: ${ownerId ? `<@${ownerId}>` : '׳׳ ׳ ׳׳¦׳'}`,
+🎫 טיקט: ${channel.name}
+👤 נסגר על ידי: <@${interaction.user.id}>
+📝 סיבה: ${reason}
+👥 פותח הטיקט: ${ownerId ? `<@${ownerId}>` : 'לא נמצא'}`,
             files
         }).catch(() => {});
     }
@@ -203,38 +202,38 @@ async function closeTicket(interaction, reason) {
                     new ButtonBuilder()
                         .setCustomId(`ticket_rating_${interaction.guild.id}_1`)
                         .setLabel('1')
-                        .setEmoji('ג­')
+                        .setEmoji('⭐')
                         .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
                         .setCustomId(`ticket_rating_${interaction.guild.id}_2`)
                         .setLabel('2')
-                        .setEmoji('ג­')
+                        .setEmoji('⭐')
                         .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
                         .setCustomId(`ticket_rating_${interaction.guild.id}_3`)
                         .setLabel('3')
-                        .setEmoji('ג­')
+                        .setEmoji('⭐')
                         .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
                         .setCustomId(`ticket_rating_${interaction.guild.id}_4`)
                         .setLabel('4')
-                        .setEmoji('ג­')
+                        .setEmoji('⭐')
                         .setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder()
                         .setCustomId(`ticket_rating_${interaction.guild.id}_5`)
                         .setLabel('5')
-                        .setEmoji('ג­')
+                        .setEmoji('⭐')
                         .setStyle(ButtonStyle.Secondary)
                 );
 
             await user.send({
                 content:
-`ג­ ׳”׳˜׳™׳§׳˜ ׳©׳׳ ׳‘׳©׳¨׳× **${interaction.guild.name}** ׳ ׳¡׳’׳¨.
+`⭐ הטיקט שלך בשרת **${interaction.guild.name}** נסגר.
 
-נ“ ׳¡׳™׳‘׳”:
+📝 סיבה:
 ${reason}
 
-׳׳™׳ ׳”׳™׳™׳×׳” ׳”׳—׳•׳•׳™׳” ׳©׳׳?`,
+איך הייתה החוויה שלך?`,
                 components: [ratingRow]
             }).catch(() => {});
         }
@@ -247,17 +246,13 @@ ${reason}
 
 // =======================
 // Voice XP System
-// ׳›׳ 5 ׳“׳§׳•׳× ׳׳™ ׳©׳‘׳©׳™׳—׳” ׳׳§׳‘׳ 15 XP
+// כל 5 דקות מי שבשיחה מקבל 15 XP
 // =======================
 
 setInterval(async () => {
-
     try {
-
         client.guilds.cache.forEach(async (guild) => {
-
             guild.voiceStates.cache.forEach(async (voiceState) => {
-
                 const member = voiceState.member;
 
                 if (!member) return;
@@ -271,24 +266,20 @@ setInterval(async () => {
                         const displayXp = result.user.totalXp || result.user.xp || 0;
 
                         await member.send(
-`נ‰ **׳¢׳׳™׳× Level!**
+`🎉 **עלית Level!**
 
-ג­ ׳”׳¨׳׳” ׳”׳—׳“׳©׳” ׳©׳׳: **${result.user.level}**
-ג¨ XP ׳ ׳•׳›׳—׳™: **${displayXp}**`
+⭐ הרמה החדשה שלך: **${result.user.level}**
+✨ XP נוכחי: **${displayXp}**`
                         );
                     } catch {
-                        console.log('׳׳ ׳”׳¦׳׳—׳×׳™ ׳׳©׳׳•׳— DM ׳¢׳ Level Up ׳-Voice XP');
+                        console.log('לא הצלחתי לשלוח DM על Level Up מ-Voice XP');
                     }
                 }
-
             });
-
         });
-
     } catch (error) {
-        console.error('ג Voice XP Error:', error);
+        console.error('❌ Voice XP Error:', error);
     }
-
 }, 5 * 60 * 1000);
 
 // =======================
@@ -302,7 +293,6 @@ client.on('messageCreate', async (message) => {
         if (!message.guild) return;
 
         if (message.content.toLowerCase().startsWith('!h')) {
-
             if (handledMessages.has(message.id)) return;
             handledMessages.add(message.id);
 
@@ -314,7 +304,7 @@ client.on('messageCreate', async (message) => {
             const logsChannel = message.guild.channels.cache.get(logsChannelId);
 
             if (!helpChannel) {
-                return message.reply('ג ׳׳ ׳ ׳׳¦׳ ׳¢׳¨׳•׳¥ help');
+                return message.reply('❌ לא נמצא ערוץ help');
             }
 
             if (helpCooldown.has(message.author.id)) {
@@ -326,7 +316,7 @@ client.on('messageCreate', async (message) => {
                         ((expirationTime - Date.now()) / 1000).toFixed(1);
 
                     return message.reply(
-                        `ג±ן¸ ׳—׳›׳” ${timeLeft} ׳©׳ ׳™׳•׳× ׳׳₪׳ ׳™ ׳©׳׳×׳” ׳¢׳•׳©׳” !h ׳©׳•׳‘`
+                        `⏱️ חכה ${timeLeft} שניות לפני שאתה עושה !h שוב`
                     );
                 }
             }
@@ -340,7 +330,7 @@ client.on('messageCreate', async (message) => {
             let reason = message.content.slice(2).trim();
 
             if (!reason) {
-                reason = "׳׳™׳ ׳¡׳™׳‘׳”";
+                reason = "אין סיבה";
             }
 
             const claimButton = new ButtonBuilder()
@@ -353,10 +343,10 @@ client.on('messageCreate', async (message) => {
 
             const sentMessage = await helpChannel.send({
                 content:
-`נ“© **׳‘׳§׳©׳× ׳¢׳–׳¨׳” ׳—׳“׳©׳”**
+`📩 **בקשת עזרה חדשה**
 
-נ‘₪ ׳׳©׳×׳׳©: <@${message.author.id}>
-נ“ ׳¡׳™׳‘׳”: ${reason}
+👤 משתמש: <@${message.author.id}>
+📝 סיבה: ${reason}
 
 <@&${staffRoleId}>`,
                 components: [row]
@@ -364,19 +354,19 @@ client.on('messageCreate', async (message) => {
 
             if (logsChannel) {
                 logsChannel.send(
-`נ“© ׳‘׳§׳©׳× Help ׳—׳“׳©׳”
+`📩 בקשת Help חדשה
 
-נ‘₪ ׳׳©׳×׳׳©: <@${message.author.id}>
-נ“ ׳¡׳™׳‘׳”: ${reason}
-נ†” Message ID: ${sentMessage.id}`
+👤 משתמש: <@${message.author.id}>
+📝 סיבה: ${reason}
+🆔 Message ID: ${sentMessage.id}`
                 ).catch(() => {});
             }
 
             try {
                 await message.author.send(
-`נ“© ׳‘׳§׳©׳× ׳”׳¢׳–׳¨׳” ׳©׳׳ ׳ ׳©׳׳—׳” ׳׳¦׳•׳•׳×!
+`📩 בקשת העזרה שלך נשלחה לצוות!
 
-נ“ ׳¡׳™׳‘׳”:
+📝 סיבה:
 ${reason}`
                 );
             } catch {}
@@ -385,9 +375,8 @@ ${reason}`
         }
 
         if (message.content.toLowerCase().startsWith('!xp')) {
-
             if (!message.member.roles.cache.has(staffRoleId)) {
-                return message.reply('ג ׳¨׳§ Staff ׳™׳›׳•׳׳™׳ ׳׳‘׳“׳•׳§ XP.');
+                return message.reply('❌ רק Staff יכולים לבדוק XP.');
             }
 
             const args = message.content.split(' ').slice(1);
@@ -398,40 +387,39 @@ ${reason}`
             try {
                 user = await client.users.fetch(userId);
             } catch {
-                return message.reply('ג ׳׳ ׳׳¦׳׳×׳™ ׳׳©׳×׳׳© ׳¢׳ ׳”-ID ׳”׳–׳”.');
+                return message.reply('❌ לא מצאתי משתמש עם ה-ID הזה.');
             }
 
             const userData = getUserData(userId);
             const displayXp = userData.totalXp || userData.xp || 0;
 
             return message.reply(
-`נ“ **XP Info**
+`📊 **XP Info**
 
-נ‘₪ ׳׳©׳×׳׳©: <@${user.id}>
-ג­ Level: **${userData.level}**
-ג¨ XP: **${displayXp}**`
+👤 משתמש: <@${user.id}>
+⭐ Level: **${userData.level}**
+✨ XP: **${displayXp}**`
             );
         }
 
         if (message.content.toLowerCase() === '!leaderboard') {
-
             if (!message.member.roles.cache.has(staffRoleId)) {
-                return message.reply('ג ׳¨׳§ Staff ׳™׳›׳•׳׳™׳ ׳׳‘׳“׳•׳§ Leaderboard.');
+                return message.reply('❌ רק Staff יכולים לבדוק Leaderboard.');
             }
 
             const leaderboard = getLeaderboard();
 
             if (!leaderboard || leaderboard.length === 0) {
-                return message.reply('׳׳™׳ ׳¢׳“׳™׳™׳ XP ׳‘׳׳¢׳¨׳›׳×.');
+                return message.reply('אין עדיין XP במערכת.');
             }
 
-            let text = 'נ† **XP Leaderboard**\n\n';
+            let text = '🏆 **XP Leaderboard**\n\n';
 
             for (let i = 0; i < leaderboard.length; i++) {
                 const [userId, data] = leaderboard[i];
                 const displayXp = data.totalXp || data.xp || 0;
 
-                text += `**${i + 1}.** <@${userId}> ג€” Level **${data.level}** | XP **${displayXp}**\n`;
+                text += `**${i + 1}.** <@${userId}> — Level **${data.level}** | XP **${displayXp}**\n`;
             }
 
             return message.reply(text);
@@ -457,18 +445,18 @@ ${reason}`
                 const displayXp = result.user.totalXp || result.user.xp || 0;
 
                 await message.author.send(
-`נ‰ **׳¢׳׳™׳× Level!**
+`🎉 **עלית Level!**
 
-ג­ ׳”׳¨׳׳” ׳”׳—׳“׳©׳” ׳©׳׳: **${result.user.level}**
-ג¨ XP ׳ ׳•׳›׳—׳™: **${displayXp}**`
+⭐ הרמה החדשה שלך: **${result.user.level}**
+✨ XP נוכחי: **${displayXp}**`
                 );
             } catch {
-                console.log('׳׳ ׳”׳¦׳׳—׳×׳™ ׳׳©׳׳•׳— DM ׳¢׳ Level Up');
+                console.log('לא הצלחתי לשלוח DM על Level Up');
             }
         }
 
     } catch (error) {
-        console.error('ג Message Error:', error);
+        console.error('❌ Message Error:', error);
     }
 });
 
@@ -479,7 +467,6 @@ ${reason}`
 
 client.on('interactionCreate', async (interaction) => {
     try {
-
         // =======================
         // Rating Button
         // =======================
@@ -494,15 +481,15 @@ client.on('interactionCreate', async (interaction) => {
 
             if (logsChannel && logsChannel.isTextBased()) {
                 await logsChannel.send(
-`ג­ **Ticket Rating**
+`⭐ **Ticket Rating**
 
-נ‘₪ ׳׳©׳×׳׳©: <@${interaction.user.id}>
-ג­ ׳“׳™׳¨׳•׳’: **${rating}/5**`
+👤 משתמש: <@${interaction.user.id}>
+⭐ דירוג: **${rating}/5**`
                 ).catch(() => {});
             }
 
             return interaction.update({
-                content: `ג… ׳×׳•׳“׳” ׳¢׳ ׳”׳“׳™׳¨׳•׳’ ׳©׳׳! ׳“׳™׳¨׳’׳× **${rating}/5** ג­`,
+                content: `✅ תודה על הדירוג שלך! דירגת **${rating}/5** ⭐`,
                 components: []
             });
         }
@@ -512,14 +499,12 @@ client.on('interactionCreate', async (interaction) => {
         // =======================
 
         if (interaction.isModalSubmit()) {
-
             if (interaction.customId === 'close_ticket_modal') {
                 const reason = interaction.fields.getTextInputValue('close_reason');
 
                 await closeTicket(interaction, reason);
                 return;
             }
-
         }
 
         // =======================
@@ -539,17 +524,17 @@ client.on('interactionCreate', async (interaction) => {
 
                         if (command.data && command.execute) {
                             client.commands.set(command.data.name, command);
-                            console.log(`ג… Loaded command on demand: ${command.data.name}`);
+                            console.log(`✅ Loaded command on demand: ${command.data.name}`);
                         }
                     } catch (error) {
-                        console.error(`ג Failed to load command on demand: ${interaction.commandName}`, error);
+                        console.error(`❌ Failed to load command on demand: ${interaction.commandName}`, error);
                     }
                 }
             }
 
             if (!command) {
                 return interaction.reply({
-                    content: 'ג ׳”׳₪׳§׳•׳“׳” ׳׳ ׳ ׳׳¦׳׳” ׳‘׳‘׳•׳˜.',
+                    content: '❌ הפקודה לא נמצאה בבוט.',
                     ephemeral: true
                 });
             }
@@ -563,12 +548,14 @@ client.on('interactionCreate', async (interaction) => {
         // =======================
 
         if (interaction.isButton()) {
+            // =======================
+            // VERIFY
+            // =======================
 
             if (interaction.customId === 'start_verify') {
-
                 if (interaction.member.roles.cache.has(memberRoleId)) {
                     return interaction.reply({
-                        content: 'ג… ׳׳×׳” ׳›׳‘׳¨ ׳׳׳•׳׳×.',
+                        content: '✅ אתה כבר מאומת.',
                         ephemeral: true
                     });
                 }
@@ -611,20 +598,19 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (interaction.customId.startsWith('verify_answer_')) {
-
                 const selectedCode = interaction.customId.replace('verify_answer_', '');
                 const correctCode = verifyCodes.get(interaction.user.id);
 
                 if (!correctCode) {
                     return interaction.reply({
-                        content: 'ג ׳׳™׳ ׳׳ ׳׳™׳׳•׳× ׳₪׳¢׳™׳. ׳׳—׳¥ ׳©׳•׳‘ ׳¢׳ Verify.',
+                        content: '❌ אין לך אימות פעיל. לחץ שוב על Verify.',
                         ephemeral: true
                     });
                 }
 
                 if (selectedCode !== correctCode) {
                     return interaction.reply({
-                        content: 'ג ׳§׳•׳“ ׳©׳’׳•׳™. ׳ ׳¡׳” ׳©׳•׳‘.',
+                        content: '❌ קוד שגוי. נסה שוב.',
                         ephemeral: true
                     });
                 }
@@ -633,7 +619,7 @@ client.on('interactionCreate', async (interaction) => {
 
                 if (!memberRole) {
                     return interaction.reply({
-                        content: 'ג ׳¨׳•׳ Member ׳׳ ׳ ׳׳¦׳.',
+                        content: '❌ רול Member לא נמצא.',
                         ephemeral: true
                     });
                 }
@@ -643,19 +629,22 @@ client.on('interactionCreate', async (interaction) => {
                 verifyCodes.delete(interaction.user.id);
 
                 return interaction.update({
-                    content: 'ג… ׳׳•׳׳×׳× ׳‘׳”׳¦׳׳—׳”! ׳§׳™׳‘׳׳× ׳’׳™׳©׳” ׳׳©׳¨׳×.',
+                    content: '✅ אומתת בהצלחה! קיבלת גישה לשרת.',
                     components: []
                 });
             }
 
-            if (interaction.customId.startsWith('xp_shop_buy_')) {
+            // =======================
+            // XP SHOP
+            // =======================
 
+            if (interaction.customId.startsWith('xp_shop_buy_')) {
                 const itemId = interaction.customId.replace('xp_shop_buy_', '');
                 const item = shopItems.find(i => i.id === itemId);
 
                 if (!item) {
                     return interaction.reply({
-                        content: 'ג ׳”׳₪׳¨׳™׳˜ ׳׳ ׳ ׳׳¦׳ ׳‘׳—׳ ׳•׳×.',
+                        content: '❌ הפריט לא נמצא בחנות.',
                         ephemeral: true
                     });
                 }
@@ -664,14 +653,14 @@ client.on('interactionCreate', async (interaction) => {
 
                 if (!role) {
                     return interaction.reply({
-                        content: 'ג ׳”׳¨׳•׳ ׳׳ ׳ ׳׳¦׳. ׳‘׳“׳•׳§ ׳׳× ׳”-roleId ׳‘-xpSystem.js.',
+                        content: '❌ הרול לא נמצא. בדוק את ה-roleId ב-xpSystem.js.',
                         ephemeral: true
                     });
                 }
 
                 if (interaction.member.roles.cache.has(item.roleId)) {
                     return interaction.reply({
-                        content: 'ג ׳›׳‘׳¨ ׳™׳© ׳׳ ׳׳× ׳”׳¨׳•׳ ׳”׳–׳”.',
+                        content: '❌ כבר יש לך את הרול הזה.',
                         ephemeral: true
                     });
                 }
@@ -681,7 +670,7 @@ client.on('interactionCreate', async (interaction) => {
 
                 if (userXp < item.price) {
                     return interaction.reply({
-                        content: `ג ׳׳™׳ ׳׳ ׳׳¡׳₪׳™׳§ XP.\n׳™׳© ׳׳ **${userXp} XP**, ׳•׳”׳¨׳•׳ ׳¢׳•׳׳” **${item.price} XP**.`,
+                        content: `❌ אין לך מספיק XP.\nיש לך **${userXp} XP**, והרול עולה **${item.price} XP**.`,
                         ephemeral: true
                     });
                 }
@@ -690,7 +679,7 @@ client.on('interactionCreate', async (interaction) => {
 
                 if (!paid) {
                     return interaction.reply({
-                        content: 'ג ׳׳™׳ ׳׳ ׳׳¡׳₪׳™׳§ XP.',
+                        content: '❌ אין לך מספיק XP.',
                         ephemeral: true
                     });
                 }
@@ -698,7 +687,7 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.member.roles.add(role);
 
                 return interaction.reply({
-                    content: `ג… ׳§׳ ׳™׳× ׳׳× ׳”׳¨׳•׳ **${item.name}** ׳‘ײ¾**${item.price} XP**!`,
+                    content: `✅ קנית את הרול **${item.name}** ב־**${item.price} XP**!`,
                     ephemeral: true
                 });
             }
@@ -709,29 +698,28 @@ client.on('interactionCreate', async (interaction) => {
 
             const ticketTypes = {
                 ticket_staff_test: {
-                    name: '׳‘׳—׳™׳ ׳”-׳׳¦׳•׳•׳×',
-                    emoji: 'ג₪'
+                    name: 'בחינה-לצוות',
+                    emoji: '❤'
                 },
                 ticket_complaint: {
-                    name: '׳׳”׳×׳׳•׳ ׳',
-                    emoji: 'ג—'
+                    name: 'להתלונן',
+                    emoji: '❗'
                 },
                 ticket_partner: {
-                    name: '׳©׳×׳₪',
-                    emoji: 'נ₪'
+                    name: 'שתפ',
+                    emoji: '🤝'
                 },
                 ticket_help: {
-                    name: '׳¢׳–׳¨׳”',
-                    emoji: 'נ™'
+                    name: 'עזרה',
+                    emoji: '🙏'
                 },
                 ticket_other: {
-                    name: '׳׳—׳¨',
-                    emoji: 'ג“'
+                    name: 'אחר',
+                    emoji: '❓'
                 }
             };
 
             if (ticketTypes[interaction.customId]) {
-
                 const ticketData = ticketTypes[interaction.customId];
 
                 const existingChannel = interaction.guild.channels.cache.find(channel =>
@@ -740,14 +728,14 @@ client.on('interactionCreate', async (interaction) => {
 
                 if (existingChannel) {
                     return interaction.reply({
-                        content: `ג ׳›׳‘׳¨ ׳™׳© ׳׳ ׳˜׳™׳§׳˜ ׳₪׳×׳•׳—: ${existingChannel}`,
+                        content: `❌ כבר יש לך טיקט פתוח: ${existingChannel}`,
                         ephemeral: true
                     });
                 }
 
                 const safeName = interaction.user.username
                     .toLowerCase()
-                    .replace(/[^a-z0-9׳-׳×]/g, '-')
+                    .replace(/[^a-z0-9א-ת]/g, '-')
                     .slice(0, 20);
 
                 const ticketChannel = await interaction.guild.channels.create({
@@ -783,13 +771,13 @@ client.on('interactionCreate', async (interaction) => {
                 const claimTicketButton = new ButtonBuilder()
                     .setCustomId('claim_ticket')
                     .setLabel('Claim Ticket')
-                    .setEmoji('נ™‹')
+                    .setEmoji('🙋')
                     .setStyle(ButtonStyle.Success);
 
                 const closeButton = new ButtonBuilder()
                     .setCustomId('close_ticket')
                     .setLabel('Close Ticket')
-                    .setEmoji('נ”’')
+                    .setEmoji('🔒')
                     .setStyle(ButtonStyle.Danger);
 
                 const row = new ActionRowBuilder()
@@ -797,17 +785,48 @@ client.on('interactionCreate', async (interaction) => {
 
                 await ticketChannel.send({
                     content:
-`${ticketData.emoji} **׳˜׳™׳§׳˜ ׳—׳“׳© ׳ ׳₪׳×׳—**
+`${ticketData.emoji} **טיקט חדש נפתח**
 
-נ‘₪ ׳׳©׳×׳׳©: <@${interaction.user.id}>
-נ“ ׳¡׳•׳’ ׳˜׳™׳§׳˜: **${ticketData.name}**
+👤 משתמש: <@${interaction.user.id}>
+📌 סוג טיקט: **${ticketData.name}**
 
 <@&${ticketStaffRoleId}>`,
                     components: [row]
                 });
 
+                if (interaction.customId === 'ticket_staff_test') {
+                    await ticketChannel.send({
+                        content:
+`📋 **שאלון בחינה לצוות**
+
+**__1: מהו שמך ?
+
+2: מהו גילך ?
+
+3: האם יש לך ניסיון בשרתים? במידה וכן, אשמח שתפרט/י את הדברים הבאים:
+
+• איזה שרת?
+• כמה ממברים?
+• מה היה הרול הכי גבוה שהגעת אליו בשרת (+ מתוך כמה רולים?)
+
+4: האם יש לך אימות דו שלבי? (2FA)
+
+5: כמה שעות תוכל/י להיות פעיל ביום ?
+
+6: לאיזה רול את/ה מכוון בעתיד ?
+
+7: איך המקצועיות שלך תתבטא בשרת?
+
+8: איך מתבטאת ההתנהלות שלך באופן כללי?
+
+9: האם יש משהו שיכול להפריע להתנהלות היום-יומית שלך בשרת?
+
+10: למה אתה חושב שכדאי לנו לקבל דווקא אותך ולא מישהו אחר לצוות בשרתנו ?__**`
+                    });
+                }
+
                 return interaction.reply({
-                    content: `ג… ׳”׳˜׳™׳§׳˜ ׳©׳׳ ׳ ׳₪׳×׳—: ${ticketChannel}`,
+                    content: `✅ הטיקט שלך נפתח: ${ticketChannel}`,
                     ephemeral: true
                 });
             }
@@ -817,10 +836,9 @@ client.on('interactionCreate', async (interaction) => {
             // =======================
 
             if (interaction.customId === 'claim_ticket') {
-
                 if (!isTicketStaff(interaction.member)) {
                     return interaction.reply({
-                        content: 'ג ׳¨׳§ Staff Tester ׳™׳›׳•׳׳™׳ ׳׳§׳—׳× ׳˜׳™׳§׳˜׳™׳.',
+                        content: '❌ רק Staff Tester יכולים לקחת טיקטים.',
                         ephemeral: true
                     });
                 }
@@ -828,14 +846,14 @@ client.on('interactionCreate', async (interaction) => {
                 const claimedButton = new ButtonBuilder()
                     .setCustomId('claimed_ticket')
                     .setLabel(`Claimed by ${interaction.user.username}`)
-                    .setEmoji('נ™‹')
+                    .setEmoji('🙋')
                     .setStyle(ButtonStyle.Secondary)
                     .setDisabled(true);
 
                 const closeButton = new ButtonBuilder()
                     .setCustomId('close_ticket')
                     .setLabel('Close Ticket')
-                    .setEmoji('נ”’')
+                    .setEmoji('🔒')
                     .setStyle(ButtonStyle.Danger);
 
                 const row = new ActionRowBuilder()
@@ -846,7 +864,7 @@ client.on('interactionCreate', async (interaction) => {
                 });
 
                 await interaction.channel.send(
-`נ™‹ ׳”׳˜׳™׳§׳˜ ׳ ׳׳§׳— ׳¢׳ ׳™׳“׳™ <@${interaction.user.id}>`
+                    `🙋 הטיקט נלקח על ידי <@${interaction.user.id}>`
                 ).catch(() => {});
 
                 return;
@@ -857,10 +875,9 @@ client.on('interactionCreate', async (interaction) => {
             // =======================
 
             if (interaction.customId === 'close_ticket') {
-
                 if (!isTicketStaff(interaction.member)) {
                     return interaction.reply({
-                        content: 'ג ׳¨׳§ Staff Tester ׳™׳›׳•׳׳™׳ ׳׳¡׳’׳•׳¨ ׳˜׳™׳§׳˜׳™׳.',
+                        content: '❌ רק Staff Tester יכולים לסגור טיקטים.',
                         ephemeral: true
                     });
                 }
@@ -871,9 +888,9 @@ client.on('interactionCreate', async (interaction) => {
 
                 const reasonInput = new TextInputBuilder()
                     .setCustomId('close_reason')
-                    .setLabel('׳¡׳™׳‘׳” ׳׳¡׳’׳™׳¨׳× ׳”׳˜׳™׳§׳˜')
+                    .setLabel('סיבה לסגירת הטיקט')
                     .setStyle(TextInputStyle.Paragraph)
-                    .setPlaceholder('׳›׳×׳•׳‘ ׳›׳׳ ׳׳× ׳”׳¡׳™׳‘׳”...')
+                    .setPlaceholder('כתוב כאן את הסיבה...')
                     .setRequired(true);
 
                 const row = new ActionRowBuilder()
@@ -890,14 +907,14 @@ client.on('interactionCreate', async (interaction) => {
 
             if (!interaction.customId.startsWith('claim_help')) {
                 return interaction.reply({
-                    content: 'ג ׳›׳₪׳×׳•׳¨ ׳׳ ׳׳•׳›׳¨.',
+                    content: '❌ כפתור לא מוכר.',
                     ephemeral: true
                 });
             }
 
             if (!interaction.member.roles.cache.has(staffRoleId)) {
                 return interaction.reply({
-                    content: 'ג ׳¨׳§ ׳¦׳•׳•׳× ׳”-Staff ׳™׳›׳•׳ ׳׳§׳—׳× ׳‘׳§׳©׳•׳×!',
+                    content: '❌ רק צוות ה-Staff יכול לקחת בקשות!',
                     ephemeral: true
                 });
             }
@@ -929,10 +946,10 @@ client.on('interactionCreate', async (interaction) => {
 
             if (logsChannel) {
                 logsChannel.send(
-`ג… ׳‘׳§׳©׳× Help ׳ ׳׳§׳—׳”
+`✅ בקשת Help נלקחה
 
-נ‘₪ ׳ ׳׳§׳— ׳¢׳ ׳™׳“׳™: <@${interaction.user.id}>
-נ†” Message ID: ${interaction.message.id}`
+👤 נלקח על ידי: <@${interaction.user.id}>
+🆔 Message ID: ${interaction.message.id}`
                 ).catch(() => {});
             }
 
@@ -940,11 +957,11 @@ client.on('interactionCreate', async (interaction) => {
         }
 
     } catch (error) {
-        console.error('ג Interaction Error:', error);
+        console.error('❌ Interaction Error:', error);
 
         if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
-                content: 'ג ׳”׳™׳™׳×׳” ׳©׳’׳™׳׳” ׳‘׳׳™׳ ׳˜׳¨׳׳§׳¦׳™׳”.',
+                content: '❌ הייתה שגיאה באינטראקציה.',
                 ephemeral: true
             }).catch(() => {});
         }
