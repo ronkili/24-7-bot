@@ -795,14 +795,46 @@ client.on('interactionCreate', async (interaction) => {
                 const row = new ActionRowBuilder()
                     .addComponents(claimTicketButton, closeButton);
 
-                await ticketChannel.send({
-                    content:
+                let ticketMessage =
 `${ticketData.emoji} **טיקט חדש נפתח**
 
 👤 משתמש: <@${interaction.user.id}>
 📌 סוג טיקט: **${ticketData.name}**
 
-<@&${ticketStaffRoleId}>`,
+<@&${ticketStaffRoleId}>`;
+
+                if (interaction.customId === 'ticket_staff_test') {
+                    ticketMessage += `
+
+📋 **שאלון בחינה לצוות**
+
+**__1: מהו שמך ?
+
+2: מהו גילך ?
+
+3: האם יש לך ניסיון בשרתים? במידה וכן, אשמח שתפרט/י את הדברים הבאים:
+
+• איזה שרת?
+• כמה ממברים?
+• מה היה הרול הכי גבוה שהגעת אליו בשרת (+ מתוך כמה רולים?)
+
+4: האם יש לך אימות דו שלבי? (2FA)
+
+5: כמה שעות תוכל/י להיות פעיל ביום ?
+
+6: לאיזה רול את/ה מכוון בעתיד ?
+
+7: איך המקצועיות שלך תתבטא בשרת?
+
+8: איך מתבטאת ההתנהלות שלך באופן כללי?
+
+9: האם יש משהו שיכול להפריע להתנהלות היום-יומית שלך בשרת?
+
+10: למה אתה חושב שכדאי לנו לקבל דווקא אותך ולא מישהו אחר לצוות בשרתנו ?__**`;
+                }
+
+                await ticketChannel.send({
+                    content: ticketMessage,
                     components: [row]
                 });
 
