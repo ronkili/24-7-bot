@@ -18,6 +18,8 @@ const {
 
 const fs = require('fs');
 const path = require('path');
+const { createCanvas, loadImage } = require('canvas');
+
 const {
     addXp,
     getUserData,
@@ -31,7 +33,8 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildVoiceStates
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMembers
     ]
 });
 
@@ -46,6 +49,7 @@ const logsChannelId = "1502608484389359617";
 const memberRoleId = "1502608358463766559";
 const ticketLogsChannelId = "1502608482531016874";
 const ticketCategoryId = "1502608433701191802";
+const welcomeChannelId = "1502608495738884117";
 
 // =======================
 // Cooldowns + Locks
@@ -103,6 +107,124 @@ if (fs.existsSync(commandsPath)) {
 client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
     console.log("✅ RUNNING NEW INDEX WITHOUT HELP_SOURCE");
+});
+
+// =======================
+// Welcome Helper
+// =======================
+
+function roundRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+
+// =======================
+// Welcome System
+// =======================
+
+client.on('guildMemberAdd', async (member) => {
+    try {
+        const welcomeChannel = member.guild.channels.cache.get(welcomeChannelId);
+
+        if (!welcomeChannel || !welcomeChannel.isTextBased()) return;
+
+        const canvas = createCanvas(1000, 500);
+        const ctx = canvas.getContext('2d');
+
+        let backgroundUrl =
+            member.guild.bannerURL({ extension: 'png', size: 1024 }) ||
+            member.guild.iconURL({ extension: 'png', size: 1024 });
+
+        if (backgroundUrl) {
+            const background = await loadImage(backgroundUrl);
+            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // White border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 7;
+        roundRect(ctx, 35, 40, 930, 420, 38);
+        ctx.stroke();
+
+        // Purple ellipse
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.ellipse(510, 250, 410, 165, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Avatar
+        const avatar = await loadImage(
+            member.user.displayAvatarURL({ extension: 'png', size: 256 })
+        );
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(235, 250, 82, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(avatar, 153, 168, 164, 164);
+        ctx.restore();
+
+        // Avatar border
+        ctx.beginPath();
+        ctx.arc(235, 250, 86, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        // Text
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+
+        ctx.font = '38px Arial';
+        ctx.fillText('WELCOME', 570, 185);
+
+        ctx.font = 'bold 62px Arial';
+        ctx.fillText(member.user.username.toUpperCase().slice(0, 18), 570, 265);
+
+        ctx.font = '28px Arial';
+        ctx.fillText(`${member.guild.name}`, 570, 320);
+
+        ctx.font = '24px Arial';
+        ctx.fillText(`Member #${member.guild.memberCount}`, 570, 360);
+
+        const joinedDate = new Date().toLocaleDateString('en-GB');
+
+        ctx.font = '22px Arial';
+        ctx.fillText(`Date: ${joinedDate}`, 570, 395);
+
+        const attachment = new AttachmentBuilder(canvas.toBuffer(), {
+            name: 'welcome.png'
+        });
+
+        await welcomeChannel.send({
+            content:
+`👋 Welcome <@${member.id}> to **${member.guild.name}**!
+
+📅 Date: **${joinedDate}**
+👤 You are member **#${member.guild.memberCount}**`,
+            files: [attachment]
+        });
+
+    } catch (error) {
+        console.error('❌ Welcome Error:', error);
+    }
 });
 
 // =======================
