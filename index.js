@@ -43,11 +43,11 @@ const client = new Client({
 // =======================
 
 const helpChannelId = "1483490217141731458"; 
-const staffRoleId = "1502608350364565695";
-const ticketStaffRoleId = "1502608354873184286";
-const logsChannelId = "1502608484389359617";
-const memberRoleId = "1502608358463766559";
-const ticketLogsChannelId = "1502608482531016874";
+const staffRoleId = "1504140298266345472";
+const ticketStaffRoleId = "1502299982957641769";
+const logsChannelId = "1504140764676886568";
+const memberRoleId = "1502293356028625007";
+const ticketLogsChannelId = "1504140954901151754";
 const ticketCategoryId = "1502608433701191802";
 const welcomeChannelId = "1502608495738884117";
 
