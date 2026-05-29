@@ -27,7 +27,7 @@ module.exports = {
         try {
 
             const staffRoleId = "1503005836623085691";
-            const logsChannelId = "1498316795260567612";
+            const logsChannelId = "1509932341840314519";
 
             if (!interaction.member.roles.cache.has(staffRoleId)) {
                 return interaction.editReply("❌ אין לך הרשאה להשתמש בפקודה הזאת");
