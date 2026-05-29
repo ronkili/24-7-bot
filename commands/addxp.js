@@ -20,7 +20,7 @@ module.exports = {
 
     async execute(interaction) {
 
-        const staffRoleId = "1502608350364565695";
+        const staffRoleId = "1503005836623085691";
 
         if (!interaction.member.roles.cache.has(staffRoleId)) {
             return interaction.reply({
