@@ -42,14 +42,14 @@ const client = new Client({
 // IDs
 // =======================
 
-const helpChannelId = "1502577368626368693"; 
+const helpChannelId = "1509560649674395689"; 
 const staffRoleId = "1503005836623085691";
 const ticketStaffRoleId = "1503006133684670525";
-const logsChannelId = "1509196647920435342";
+const logsChannelId = "1509560618133229589";
 const memberRoleId = "1503050547140231280";
-const ticketLogsChannelId = "1509196833518522398";
+const ticketLogsChannelId = "1509560614404620351";
 const ticketCategoryId = "1502630745259114546";
-const welcomeChannelId = "1507809673653256222";
+const welcomeChannelId = "1509560625033117708";
 
 // =======================
 // Cooldowns + Locks
