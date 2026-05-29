@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 
-const ticketStaffRoleId = "1502608354873184286";
+const ticketStaffRoleId = "1503006133684670525";
 
 module.exports = {
     data: new SlashCommandBuilder()
