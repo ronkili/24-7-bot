@@ -39,7 +39,7 @@ module.exports = {
 
         try {
 
-            const staffRoleId = "1502608350364565695";
+            const staffRoleId = "1503005836623085691";
             const warnLogsChannelId = "1509932150340714658";
 
             if (!interaction.member.roles.cache.has(staffRoleId)) {
