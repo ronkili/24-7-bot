@@ -1,5 +1,10 @@
 require("dotenv").config();
 
+console.log("TOKEN exists:", Boolean(process.env.TOKEN));
+console.log("CLIENT_ID exists:", Boolean(process.env.CLIENT_ID));
+console.log("GUILD_ID exists:", Boolean(process.env.GUILD_ID));
+console.log("CASINO ROLE exists:", Boolean(process.env.CASINO_MANAGER_ROLE_ID));
+
 const fs = require("fs");
 const path = require("path");
 
