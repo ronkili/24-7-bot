@@ -1,0 +1,46 @@
+{
+  "1266662350027620446": {
+    "money": 16150,
+    "gamesPlayed": 5,
+    "totalBet": 350650,
+    "totalWon": 84,
+    "totalLost": 350500,
+    "biggestWin": 84,
+    "lastDaily": 1783622324765,
+    "lastWeekly": 1783622337495,
+    "lastMonthly": 1783622344555
+  },
+  "1267472164127375475": {
+    "money": 19086,
+    "gamesPlayed": 58,
+    "totalBet": 26896,
+    "totalWon": 28732,
+    "totalLost": 8828,
+    "biggestWin": 4787,
+    "lastDaily": 1783619723369,
+    "lastWeekly": 1783622347981,
+    "lastMonthly": 1783622116329
+  },
+  "1434247159519121438": {
+    "money": 0,
+    "gamesPlayed": 25,
+    "totalBet": 17338,
+    "totalWon": 24501,
+    "totalLost": 2039,
+    "biggestWin": 20000,
+    "lastDaily": 1783619999014,
+    "lastWeekly": 0,
+    "lastMonthly": 0
+  },
+  "1434461328315256894": {
+    "money": 0,
+    "gamesPlayed": 5,
+    "totalBet": 225434,
+    "totalWon": 2327,
+    "totalLost": 224222,
+    "biggestWin": 2000,
+    "lastDaily": 0,
+    "lastWeekly": 0,
+    "lastMonthly": 0
+  }
+}
