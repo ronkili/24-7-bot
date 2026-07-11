@@ -2,7 +2,11 @@ require("dotenv").config();
 
 const fs = require("fs");
 const path = require("path");
-const { REST, Routes } = require("discord.js");
+
+const {
+  REST,
+  Routes
+} = require("discord.js");
 
 if (!process.env.TOKEN) {
   console.error("❌ TOKEN חסר");
@@ -49,32 +53,28 @@ for (const file of commandFiles) {
         ? [moduleData]
         : [];
 
-    if (loadedCommands.length === 0) {
-      console.log(`⚠️ לא נמצאו פקודות בתוך ${file}`);
-      continue;
-    }
-
     for (const command of loadedCommands) {
-      if (!command.data) {
-        console.log(`⚠️ פקודה ללא data בתוך ${file}`);
+      if (!command?.data?.name) {
+        console.log(`⚠️ פקודה לא תקינה בתוך ${file}`);
         continue;
       }
 
       const commandName = command.data.name;
 
       if (commandNames.has(commandName)) {
-        console.log(`❌ פקודה כפולה: /${commandName}`);
-        continue;
+        console.error(`❌ פקודה כפולה: /${commandName}`);
+        process.exit(1);
       }
 
       commandNames.add(commandName);
       commands.push(command.data.toJSON());
 
-      console.log(`✅ נטענה הפקודה /${commandName}`);
+      console.log(`✅ נטענה לרישום /${commandName}`);
     }
   } catch (error) {
     console.error(`❌ שגיאה בטעינת ${file}:`);
     console.error(error);
+    process.exit(1);
   }
 }
 
@@ -83,8 +83,9 @@ if (commands.length === 0) {
   process.exit(1);
 }
 
-const rest = new REST({ version: "10" })
-  .setToken(process.env.TOKEN);
+const rest = new REST({
+  version: "10"
+}).setToken(process.env.TOKEN);
 
 (async () => {
   try {
