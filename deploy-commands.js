@@ -2,41 +2,27 @@ require("dotenv").config();
 
 const fs = require("fs");
 const path = require("path");
-
-const {
-  REST,
-  Routes
-} = require("discord.js");
-
-// =====================
-// בדיקת משתני סביבה
-// =====================
+const { REST, Routes } = require("discord.js");
 
 if (!process.env.TOKEN) {
-  console.error("❌ TOKEN חסר בקובץ .env");
+  console.error("❌ TOKEN חסר");
   process.exit(1);
 }
 
 if (!process.env.CLIENT_ID) {
-  console.error("❌ CLIENT_ID חסר בקובץ .env");
+  console.error("❌ CLIENT_ID חסר");
   process.exit(1);
 }
 
 if (!process.env.GUILD_ID) {
-  console.error("❌ GUILD_ID חסר בקובץ .env");
+  console.error("❌ GUILD_ID חסר");
   process.exit(1);
 }
-
-// =====================
-// טעינת הפקודות
-// =====================
-
-const commands = [];
 
 const commandsPath = path.join(__dirname, "commands");
 
 if (!fs.existsSync(commandsPath)) {
-  console.error("❌ לא נמצאה תיקיית commands");
+  console.error("❌ תיקיית commands לא קיימת");
   process.exit(1);
 }
 
@@ -44,7 +30,10 @@ const commandFiles = fs
   .readdirSync(commandsPath)
   .filter(file => file.endsWith(".js"));
 
-console.log(`📂 נמצאו ${commandFiles.length} קבצי פקודות.`);
+const commands = [];
+const commandNames = new Set();
+
+console.log(`📂 נמצאו ${commandFiles.length} קבצים בתיקיית commands`);
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
@@ -52,35 +41,54 @@ for (const file of commandFiles) {
   try {
     delete require.cache[require.resolve(filePath)];
 
-    const command = require(filePath);
+    const moduleData = require(filePath);
 
-    if (!command.data || typeof command.execute !== "function") {
-      console.warn(
-        `⚠️ הקובץ ${file} לא מכיל data ו־execute תקינים, ולכן הוא לא נרשם.`
-      );
+    const loadedCommands = Array.isArray(moduleData.commands)
+      ? moduleData.commands
+      : moduleData.data
+        ? [moduleData]
+        : [];
 
+    if (loadedCommands.length === 0) {
+      console.log(`⚠️ לא נמצאו פקודות בתוך ${file}`);
       continue;
     }
 
-    commands.push(command.data.toJSON());
+    for (const command of loadedCommands) {
+      if (!command.data) {
+        console.log(`⚠️ פקודה ללא data בתוך ${file}`);
+        continue;
+      }
 
-    console.log(`✅ נטענה לרישום הפקודה: /${command.data.name}`);
+      const commandName = command.data.name;
+
+      if (commandNames.has(commandName)) {
+        console.log(`❌ פקודה כפולה: /${commandName}`);
+        continue;
+      }
+
+      commandNames.add(commandName);
+      commands.push(command.data.toJSON());
+
+      console.log(`✅ נטענה הפקודה /${commandName}`);
+    }
   } catch (error) {
-    console.error(`❌ שגיאה בטעינת ${file}:`, error);
+    console.error(`❌ שגיאה בטעינת ${file}:`);
+    console.error(error);
   }
 }
 
-// =====================
-// רישום הפקודות
-// =====================
+if (commands.length === 0) {
+  console.error("❌ לא נמצאו פקודות לרישום");
+  process.exit(1);
+}
 
-const rest = new REST({
-  version: "10"
-}).setToken(process.env.TOKEN);
+const rest = new REST({ version: "10" })
+  .setToken(process.env.TOKEN);
 
 (async () => {
   try {
-    console.log("🔄 רושם פקודות Slash בשרת...");
+    console.log(`🔄 רושם ${commands.length} פקודות...`);
 
     await rest.put(
       Routes.applicationGuildCommands(
@@ -92,8 +100,9 @@ const rest = new REST({
       }
     );
 
-    console.log(`✅ נרשמו ${commands.length} פקודות בהצלחה.`);
+    console.log(`✅ נרשמו ${commands.length} פקודות בהצלחה`);
   } catch (error) {
-    console.error("❌ שגיאה ברישום הפקודות:", error);
+    console.error("❌ Deploy error:");
+    console.error(error);
   }
 })();
