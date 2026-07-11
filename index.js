@@ -1,10 +1,5 @@
 require("dotenv").config();
 
-console.log("TOKEN exists:", Boolean(process.env.TOKEN));
-console.log("CLIENT_ID exists:", Boolean(process.env.CLIENT_ID));
-console.log("GUILD_ID exists:", Boolean(process.env.GUILD_ID));
-console.log("CASINO ROLE exists:", Boolean(process.env.CASINO_MANAGER_ROLE_ID));
-
 const fs = require("fs");
 const path = require("path");
 
@@ -16,16 +11,24 @@ const {
 } = require("discord.js");
 
 // =====================
-// בדיקת משתני סביבה
+// בדיקת Variables
 // =====================
 
+console.log("TOKEN exists:", Boolean(process.env.TOKEN));
+console.log("CLIENT_ID exists:", Boolean(process.env.CLIENT_ID));
+console.log("GUILD_ID exists:", Boolean(process.env.GUILD_ID));
+console.log(
+  "CASINO ROLE exists:",
+  Boolean(process.env.CASINO_MANAGER_ROLE_ID)
+);
+
 if (!process.env.TOKEN) {
-  console.error("❌ TOKEN חסר בקובץ .env");
+  console.error("❌ TOKEN חסר");
   process.exit(1);
 }
 
 // =====================
-// יצירת הבוט
+// CLIENT
 // =====================
 
 const client = new Client({
@@ -36,6 +39,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+client.buttonHandlers = [];
 
 // =====================
 // טעינת פקודות
@@ -52,7 +56,9 @@ const commandFiles = fs
   .readdirSync(commandsPath)
   .filter(file => file.endsWith(".js"));
 
-console.log(`📂 נמצאו ${commandFiles.length} קבצי פקודות.`);
+console.log(
+  `📂 נמצאו ${commandFiles.length} קבצים בתיקיית commands`
+);
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
@@ -60,88 +66,248 @@ for (const file of commandFiles) {
   try {
     delete require.cache[require.resolve(filePath)];
 
-    const command = require(filePath);
+    const moduleData = require(filePath);
 
-    if (!command.data || typeof command.execute !== "function") {
+    // תומך גם בקובץ עם פקודה אחת
+    // וגם ב־casino.js שמכיל מערך commands
+    const loadedCommands = Array.isArray(moduleData.commands)
+      ? moduleData.commands
+      : moduleData.data
+        ? [moduleData]
+        : [];
+
+    if (loadedCommands.length === 0) {
       console.warn(
-        `⚠️ הקובץ ${file} לא מכיל data ו־execute תקינים, ולכן הוא לא נטען.`
+        `⚠️ הקובץ ${file} לא החזיר פקודות`
       );
-
-      continue;
     }
 
-    client.commands.set(command.data.name, command);
+    for (const command of loadedCommands) {
+      if (!command?.data?.name) {
+        console.warn(
+          `⚠️ נמצאה פקודה לא תקינה בתוך ${file}`
+        );
 
-    console.log(`✅ נטענה הפקודה: /${command.data.name}`);
+        continue;
+      }
+
+      if (typeof command.execute !== "function") {
+        console.warn(
+          `⚠️ לפקודה /${command.data.name} אין execute`
+        );
+
+        continue;
+      }
+
+      if (client.commands.has(command.data.name)) {
+        console.warn(
+          `⚠️ הפקודה /${command.data.name} כבר קיימת`
+        );
+
+        continue;
+      }
+
+      client.commands.set(
+        command.data.name,
+        command
+      );
+
+      console.log(
+        `✅ נטענה הפקודה /${command.data.name}`
+      );
+    }
+
+    if (typeof moduleData.handleButton === "function") {
+      client.buttonHandlers.push(
+        moduleData.handleButton
+      );
+
+      console.log(
+        `✅ נטען Button Handler מתוך ${file}`
+      );
+    }
   } catch (error) {
-    console.error(`❌ שגיאה בטעינת ${file}:`, error);
+    console.error(
+      `❌ שגיאה בטעינת הקובץ ${file}:`
+    );
+
+    console.error(error);
   }
 }
 
 // =====================
-// הבוט מוכן
+// READY
 // =====================
 
 client.once(Events.ClientReady, readyClient => {
-  console.log(`✅ הבוט מחובר בתור ${readyClient.user.tag}`);
-  console.log(`✅ נטענו ${client.commands.size} פקודות.`);
-});
+  console.log(
+    `✅ הבוט מחובר בתור ${readyClient.user.tag}`
+  );
 
-// =====================
-// טיפול בפקודות
-// =====================
+  console.log(
+    `✅ נטענו ${client.commands.size} פקודות`
+  );
 
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+  console.log(
+    `✅ נטענו ${client.buttonHandlers.length} Button Handlers`
+  );
 
-  const command = client.commands.get(interaction.commandName);
+  const leaderboardChannelId =
+    process.env.LEADERBOARD_CHANNEL_ID ||
+    "1524838815951229118";
 
-  if (!command) {
-    return interaction.reply({
-      content: "❌ הפקודה הזאת לא נמצאה בבוט.",
-      ephemeral: true
-    }).catch(() => {});
-  }
+  async function sendLeaderboard() {
+    const command =
+      client.commands.get("leaderboard");
 
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(
-      `❌ שגיאה בהפעלת /${interaction.commandName}:`,
-      error
-    );
+    const channel =
+      readyClient.channels.cache.get(
+        leaderboardChannelId
+      );
 
-    const errorMessage = {
-      content: "❌ הייתה שגיאה בזמן הפעלת הפקודה.",
-      ephemeral: true
-    };
+    if (!command) {
+      console.log(
+        "⚠️ הפקודה leaderboard לא נטענה"
+      );
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(errorMessage).catch(() => {});
-    } else {
-      await interaction.reply(errorMessage).catch(() => {});
+      return;
+    }
+
+    if (!channel?.isTextBased()) {
+      console.log(
+        "⚠️ חדר ה־Leaderboard לא נמצא"
+      );
+
+      return;
+    }
+
+    if (
+      typeof command.buildLeaderboardEmbed !==
+      "function"
+    ) {
+      console.log(
+        "⚠️ אין buildLeaderboardEmbed בפקודת leaderboard"
+      );
+
+      return;
+    }
+
+    try {
+      await channel.send({
+        embeds: [
+          command.buildLeaderboardEmbed()
+        ]
+      });
+    } catch (error) {
+      console.error(
+        "❌ שגיאה בשליחת Leaderboard:",
+        error
+      );
     }
   }
+
+  sendLeaderboard();
+
+  setInterval(
+    sendLeaderboard,
+    60 * 60 * 1000
+  );
 });
 
 // =====================
-// טיפול בשגיאות
+// INTERACTIONS
 // =====================
 
-client.on(Events.Error, error => {
-  console.error("❌ שגיאת Discord Client:", error);
-});
+client.on(
+  Events.InteractionCreate,
+  async interaction => {
+    try {
+      if (interaction.isButton()) {
+        for (
+          const handler of
+          client.buttonHandlers
+        ) {
+          const handled =
+            await handler(interaction);
 
-process.on("unhandledRejection", error => {
-  console.error("❌ Unhandled Rejection:", error);
-});
+          if (handled) return;
+        }
 
-process.on("uncaughtException", error => {
-  console.error("❌ Uncaught Exception:", error);
-});
+        return;
+      }
+
+      if (!interaction.isChatInputCommand()) {
+        return;
+      }
+
+      const command =
+        client.commands.get(
+          interaction.commandName
+        );
+
+      if (!command) {
+        return interaction.reply({
+          content:
+            "❌ הפקודה הזאת לא נטענה בבוט.",
+          ephemeral: true
+        });
+      }
+
+      await command.execute(interaction);
+    } catch (error) {
+      console.error(
+        `❌ שגיאה בפקודה או בכפתור:`,
+        error
+      );
+
+      const response = {
+        content:
+          "❌ הייתה שגיאה בביצוע הפעולה.",
+        ephemeral: true
+      };
+
+      if (
+        interaction.replied ||
+        interaction.deferred
+      ) {
+        await interaction
+          .followUp(response)
+          .catch(() => {});
+      } else {
+        await interaction
+          .reply(response)
+          .catch(() => {});
+      }
+    }
+  }
+);
 
 // =====================
-// התחברות
+// ERRORS
+// =====================
+
+process.on(
+  "unhandledRejection",
+  error => {
+    console.error(
+      "❌ Unhandled Rejection:",
+      error
+    );
+  }
+);
+
+process.on(
+  "uncaughtException",
+  error => {
+    console.error(
+      "❌ Uncaught Exception:",
+      error
+    );
+  }
+);
+
+// =====================
+// LOGIN
 // =====================
 
 client.login(process.env.TOKEN);
