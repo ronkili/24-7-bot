@@ -10,15 +10,11 @@ const {
   Events
 } = require("discord.js");
 
-// =====================
-// בדיקת Variables
-// =====================
-
 console.log("TOKEN exists:", Boolean(process.env.TOKEN));
 console.log("CLIENT_ID exists:", Boolean(process.env.CLIENT_ID));
 console.log("GUILD_ID exists:", Boolean(process.env.GUILD_ID));
 console.log(
-  "CASINO ROLE exists:",
+  "CASINO_MANAGER_ROLE_ID exists:",
   Boolean(process.env.CASINO_MANAGER_ROLE_ID)
 );
 
@@ -26,10 +22,6 @@ if (!process.env.TOKEN) {
   console.error("❌ TOKEN חסר");
   process.exit(1);
 }
-
-// =====================
-// CLIENT
-// =====================
 
 const client = new Client({
   intents: [
@@ -40,6 +32,7 @@ const client = new Client({
 
 client.commands = new Collection();
 client.buttonHandlers = [];
+client.selectMenuHandlers = [];
 
 // =====================
 // טעינת פקודות
@@ -48,17 +41,14 @@ client.buttonHandlers = [];
 const commandsPath = path.join(__dirname, "commands");
 
 if (!fs.existsSync(commandsPath)) {
-  console.error("❌ לא נמצאה תיקיית commands");
-  process.exit(1);
+  fs.mkdirSync(commandsPath, { recursive: true });
 }
 
 const commandFiles = fs
   .readdirSync(commandsPath)
   .filter(file => file.endsWith(".js"));
 
-console.log(
-  `📂 נמצאו ${commandFiles.length} קבצים בתיקיית commands`
-);
+console.log(`📂 נמצאו ${commandFiles.length} קבצים בתיקיית commands`);
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
@@ -68,69 +58,43 @@ for (const file of commandFiles) {
 
     const moduleData = require(filePath);
 
-    // תומך גם בקובץ עם פקודה אחת
-    // וגם ב־casino.js שמכיל מערך commands
     const loadedCommands = Array.isArray(moduleData.commands)
       ? moduleData.commands
       : moduleData.data
         ? [moduleData]
         : [];
 
-    if (loadedCommands.length === 0) {
-      console.warn(
-        `⚠️ הקובץ ${file} לא החזיר פקודות`
-      );
-    }
-
     for (const command of loadedCommands) {
       if (!command?.data?.name) {
-        console.warn(
-          `⚠️ נמצאה פקודה לא תקינה בתוך ${file}`
-        );
-
+        console.log(`⚠️ נמצאה פקודה לא תקינה בתוך ${file}`);
         continue;
       }
 
       if (typeof command.execute !== "function") {
-        console.warn(
-          `⚠️ לפקודה /${command.data.name} אין execute`
-        );
-
+        console.log(`⚠️ לפקודה /${command.data.name} אין execute`);
         continue;
       }
 
       if (client.commands.has(command.data.name)) {
-        console.warn(
-          `⚠️ הפקודה /${command.data.name} כבר קיימת`
-        );
-
+        console.log(`❌ פקודה כפולה: /${command.data.name}`);
         continue;
       }
 
-      client.commands.set(
-        command.data.name,
-        command
-      );
-
-      console.log(
-        `✅ נטענה הפקודה /${command.data.name}`
-      );
+      client.commands.set(command.data.name, command);
+      console.log(`✅ נטענה הפקודה /${command.data.name}`);
     }
 
     if (typeof moduleData.handleButton === "function") {
-      client.buttonHandlers.push(
-        moduleData.handleButton
-      );
+      client.buttonHandlers.push(moduleData.handleButton);
+      console.log(`✅ נטען Button Handler מתוך ${file}`);
+    }
 
-      console.log(
-        `✅ נטען Button Handler מתוך ${file}`
-      );
+    if (typeof moduleData.handleSelectMenu === "function") {
+      client.selectMenuHandlers.push(moduleData.handleSelectMenu);
+      console.log(`✅ נטען Select Menu Handler מתוך ${file}`);
     }
   } catch (error) {
-    console.error(
-      `❌ שגיאה בטעינת הקובץ ${file}:`
-    );
-
+    console.error(`❌ שגיאה בטעינת ${file}:`);
     console.error(error);
   }
 }
@@ -139,172 +103,101 @@ for (const file of commandFiles) {
 // READY
 // =====================
 
-client.once(Events.ClientReady, readyClient => {
-  console.log(
-    `✅ הבוט מחובר בתור ${readyClient.user.tag}`
-  );
-
-  console.log(
-    `✅ נטענו ${client.commands.size} פקודות`
-  );
-
-  console.log(
-    `✅ נטענו ${client.buttonHandlers.length} Button Handlers`
-  );
+client.once(Events.ClientReady, async readyClient => {
+  console.log(`✅ הבוט מחובר בתור ${readyClient.user.tag}`);
+  console.log(`✅ נטענו ${client.commands.size} פקודות`);
+  console.log(`✅ נטענו ${client.buttonHandlers.length} Button Handlers`);
 
   const leaderboardChannelId =
-    process.env.LEADERBOARD_CHANNEL_ID ||
-    "1524838815951229118";
+    process.env.LEADERBOARD_CHANNEL_ID || "1524838815951229118";
 
   async function sendLeaderboard() {
-    const command =
-      client.commands.get("leaderboard");
+    const command = client.commands.get("leaderboard");
+    const channel = readyClient.channels.cache.get(leaderboardChannelId);
 
-    const channel =
-      readyClient.channels.cache.get(
-        leaderboardChannelId
-      );
+    if (!command || !channel?.isTextBased()) return;
 
-    if (!command) {
-      console.log(
-        "⚠️ הפקודה leaderboard לא נטענה"
-      );
+    if (typeof command.buildLeaderboardEmbed !== "function") return;
 
-      return;
-    }
-
-    if (!channel?.isTextBased()) {
-      console.log(
-        "⚠️ חדר ה־Leaderboard לא נמצא"
-      );
-
-      return;
-    }
-
-    if (
-      typeof command.buildLeaderboardEmbed !==
-      "function"
-    ) {
-      console.log(
-        "⚠️ אין buildLeaderboardEmbed בפקודת leaderboard"
-      );
-
-      return;
-    }
-
-    try {
-      await channel.send({
-        embeds: [
-          command.buildLeaderboardEmbed()
-        ]
-      });
-    } catch (error) {
-      console.error(
-        "❌ שגיאה בשליחת Leaderboard:",
-        error
-      );
-    }
+    await channel.send({
+      embeds: [command.buildLeaderboardEmbed()]
+    }).catch(error => {
+      console.error("❌ שגיאה בשליחת Leaderboard:", error);
+    });
   }
 
-  sendLeaderboard();
+  await sendLeaderboard();
 
-  setInterval(
-    sendLeaderboard,
-    60 * 60 * 1000
-  );
+  setInterval(() => {
+    sendLeaderboard();
+  }, 60 * 60 * 1000);
 });
 
 // =====================
 // INTERACTIONS
 // =====================
 
-client.on(
-  Events.InteractionCreate,
-  async interaction => {
-    try {
-      if (interaction.isButton()) {
-        for (
-          const handler of
-          client.buttonHandlers
-        ) {
-          const handled =
-            await handler(interaction);
+client.on(Events.InteractionCreate, async interaction => {
+  try {
+    if (interaction.isButton()) {
+      for (const handler of client.buttonHandlers) {
+        const handled = await handler(interaction);
 
-          if (handled) return;
-        }
-
-        return;
+        if (handled) return;
       }
 
-      if (!interaction.isChatInputCommand()) {
-        return;
+      return;
+    }
+
+    if (interaction.isStringSelectMenu()) {
+      for (const handler of client.selectMenuHandlers) {
+        const handled = await handler(interaction);
+
+        if (handled) return;
       }
 
-      const command =
-        client.commands.get(
-          interaction.commandName
-        );
+      return;
+    }
 
-      if (!command) {
-        return interaction.reply({
-          content:
-            "❌ הפקודה הזאת לא נטענה בבוט.",
-          ephemeral: true
-        });
-      }
+    if (!interaction.isChatInputCommand()) return;
 
-      await command.execute(interaction);
-    } catch (error) {
-      console.error(
-        `❌ שגיאה בפקודה או בכפתור:`,
-        error
-      );
+    const command = client.commands.get(interaction.commandName);
 
-      const response = {
-        content:
-          "❌ הייתה שגיאה בביצוע הפעולה.",
+    if (!command) {
+      return interaction.reply({
+        content: "❌ הפקודה הזאת לא נטענה בבוט.",
         ephemeral: true
-      };
+      });
+    }
 
-      if (
-        interaction.replied ||
-        interaction.deferred
-      ) {
-        await interaction
-          .followUp(response)
-          .catch(() => {});
-      } else {
-        await interaction
-          .reply(response)
-          .catch(() => {});
-      }
+    await command.execute(interaction);
+  } catch (error) {
+    console.error("❌ שגיאה באינטראקציה:", error);
+
+    const response = {
+      content: "❌ הייתה שגיאה בביצוע הפעולה.",
+      ephemeral: true
+    };
+
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(response).catch(() => {});
+    } else {
+      await interaction.reply(response).catch(() => {});
     }
   }
-);
+});
 
 // =====================
 // ERRORS
 // =====================
 
-process.on(
-  "unhandledRejection",
-  error => {
-    console.error(
-      "❌ Unhandled Rejection:",
-      error
-    );
-  }
-);
+process.on("unhandledRejection", error => {
+  console.error("❌ Unhandled Rejection:", error);
+});
 
-process.on(
-  "uncaughtException",
-  error => {
-    console.error(
-      "❌ Uncaught Exception:",
-      error
-    );
-  }
-);
+process.on("uncaughtException", error => {
+  console.error("❌ Uncaught Exception:", error);
+});
 
 // =====================
 // LOGIN
