@@ -108,6 +108,57 @@ async function sendSecurityLog(guild, content) {
   channel.send({ content }).catch(() => {});
 }
 
+
+function hasVipConfig() {
+  return Boolean(
+    config.vipRoleId &&
+    config.staffRoleId &&
+    config.ownerRoleId &&
+    config.vipRequestsChannelId
+  );
+}
+
+function isVipStaff(member) {
+  return Boolean(member?.roles?.cache?.has(config.staffRoleId));
+}
+
+function isVipOwner(member) {
+  return Boolean(member?.roles?.cache?.has(config.ownerRoleId));
+}
+
+function vipRequestButtons(targetId, requesterId, disabled = false) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`vip_approve:${targetId}:${requesterId}`)
+        .setLabel("אישור")
+        .setEmoji("✅")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(disabled),
+
+      new ButtonBuilder()
+        .setCustomId(`vip_deny:${targetId}:${requesterId}`)
+        .setLabel("דחייה")
+        .setEmoji("❌")
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(disabled)
+    )
+  ];
+}
+
+function buildVipNickname(member) {
+  const currentName =
+    member.nickname ||
+    member.user.globalName ||
+    member.user.username;
+
+  const cleanName = currentName
+    .replace(/^VIP\s*\|\s*/i, "")
+    .trim();
+
+  return `VIP | ${cleanName}`.slice(0, 32);
+}
+
 async function sendVerifyPanel(channel) {
   const embed = new EmbedBuilder()
     .setColor("Blue")
@@ -567,6 +618,141 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
+
+    if (interaction.commandName === "vip-request") {
+      await interaction.deferReply({ ephemeral: true });
+
+      try {
+        if (!hasVipConfig()) {
+          return interaction.editReply(
+            "❌ חסרים IDs של מערכת VIP ב־config.js."
+          );
+        }
+
+        if (!isVipStaff(interaction.member)) {
+          return interaction.editReply(
+            "❌ רק מי שיש לו את רול ה־Staff יכול לשלוח בקשת VIP."
+          );
+        }
+
+        const target = interaction.options.getUser("user");
+        const reason = interaction.options.getString("reason");
+
+        if (!target || !reason) {
+          return interaction.editReply(
+            "❌ חסר משתמש או הסבר לבקשה."
+          );
+        }
+
+        if (target.bot) {
+          return interaction.editReply(
+            "❌ אי אפשר לבקש VIP עבור בוט."
+          );
+        }
+
+        const targetMember = await interaction.guild.members
+          .fetch(target.id)
+          .catch(() => null);
+
+        if (!targetMember) {
+          return interaction.editReply(
+            "❌ לא מצאתי את המשתמש הזה בשרת."
+          );
+        }
+
+        const vipRole = await interaction.guild.roles
+          .fetch(config.vipRoleId)
+          .catch(() => null);
+
+        if (!vipRole) {
+          return interaction.editReply(
+            "❌ לא מצאתי את רול ה־VIP. בדוק את vipRoleId ב־config.js."
+          );
+        }
+
+        if (targetMember.roles.cache.has(vipRole.id)) {
+          return interaction.editReply(
+            "❌ למשתמש הזה כבר יש VIP."
+          );
+        }
+
+        const requestsChannel = await interaction.guild.channels
+          .fetch(config.vipRequestsChannelId)
+          .catch(() => null);
+
+        if (!requestsChannel?.isTextBased()) {
+          return interaction.editReply(
+            "❌ לא מצאתי את חדר בקשות ה־VIP. בדוק את vipRequestsChannelId."
+          );
+        }
+
+        const botMember = await interaction.guild.members
+          .fetchMe()
+          .catch(() => null);
+
+        const channelPermissions = botMember
+          ? requestsChannel.permissionsFor(botMember)
+          : null;
+
+        if (
+          !channelPermissions?.has(PermissionFlagsBits.ViewChannel) ||
+          !channelPermissions?.has(PermissionFlagsBits.SendMessages) ||
+          !channelPermissions?.has(PermissionFlagsBits.EmbedLinks)
+        ) {
+          return interaction.editReply(
+            "❌ לבוט חסרות הרשאות בחדר בקשות ה־VIP.\n" +
+            "צריך: View Channel, Send Messages ו־Embed Links."
+          );
+        }
+
+        const requestEmbed = new EmbedBuilder()
+          .setColor("Gold")
+          .setTitle("👑 בקשת VIP חדשה")
+          .addFields(
+            {
+              name: "👤 נשלחה על ידי",
+              value: `${interaction.user} (\`${interaction.user.id}\`)`
+            },
+            {
+              name: "🎯 בקשה עבור",
+              value: `${target} (\`${target.id}\`)`
+            },
+            {
+              name: "📝 סיבה",
+              value: reason.slice(0, 1024)
+            }
+          )
+          .setThumbnail(target.displayAvatarURL())
+          .setFooter({
+            text: "רק בעלי רול Owners יכולים לאשר או לדחות"
+          })
+          .setTimestamp();
+
+        await requestsChannel.send({
+          content: `<@&${config.ownerRoleId}>`,
+          embeds: [requestEmbed],
+          components: vipRequestButtons(
+            target.id,
+            interaction.user.id
+          ),
+          allowedMentions: {
+            roles: [config.ownerRoleId]
+          }
+        });
+
+        return interaction.editReply(
+          `✅ בקשת ה־VIP עבור ${target} נשלחה ל־Owners.`
+        );
+      } catch (error) {
+        console.error("VIP request error:", error);
+
+        return interaction.editReply(
+          "❌ הייתה שגיאה בשליחת בקשת ה־VIP.\n" +
+          `שגיאה: \`${error.code || error.message}\``
+        ).catch(() => {});
+      }
+    }
+
     if (interaction.commandName === "approve-bot") {
       if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({ content: "רק אדמין יכול להשתמש בזה.", ephemeral: true });
@@ -884,6 +1070,213 @@ client.on("interactionCreate", async (interaction) => {
     }, 5000);
 
     return;
+  }
+
+
+  if (
+    interaction.customId.startsWith("vip_approve:") ||
+    interaction.customId.startsWith("vip_deny:")
+  ) {
+    try {
+      if (!hasVipConfig()) {
+        return interaction.reply({
+          content: "❌ חסרים IDs של מערכת VIP ב־config.js.",
+          ephemeral: true
+        });
+      }
+
+      if (!isVipOwner(interaction.member)) {
+        return interaction.reply({
+          content: "❌ רק מי שיש לו את רול ה־Owners יכול לטפל בבקשה.",
+          ephemeral: true
+        });
+      }
+
+      const [action, targetId, requesterId] =
+        interaction.customId.split(":");
+
+      const approved = action === "vip_approve";
+
+      if (!approved) {
+        const deniedEmbed = EmbedBuilder
+          .from(interaction.message.embeds[0])
+          .setColor("Red")
+          .setTitle("❌ בקשת VIP נדחתה")
+          .addFields({
+            name: "טופל על ידי",
+            value: `${interaction.user}`
+          })
+          .setTimestamp();
+
+        await interaction.update({
+          content: "",
+          embeds: [deniedEmbed],
+          components: vipRequestButtons(
+            targetId,
+            requesterId,
+            true
+          )
+        });
+
+        const requester = await interaction.guild.members
+          .fetch(requesterId)
+          .catch(() => null);
+
+        requester?.send(
+          `❌ בקשת ה־VIP ששלחת עבור <@${targetId}> נדחתה על ידי ${interaction.user.tag}.`
+        ).catch(() => {});
+
+        return;
+      }
+
+      await interaction.deferUpdate();
+
+      const targetMember = await interaction.guild.members
+        .fetch(targetId)
+        .catch(() => null);
+
+      const vipRole = await interaction.guild.roles
+        .fetch(config.vipRoleId)
+        .catch(() => null);
+
+      const botMember = await interaction.guild.members
+        .fetchMe()
+        .catch(() => null);
+
+      if (!targetMember) {
+        return interaction.followUp({
+          content: "❌ המשתמש כבר לא נמצא בשרת.",
+          ephemeral: true
+        });
+      }
+
+      if (!vipRole) {
+        return interaction.followUp({
+          content: "❌ רול ה־VIP לא נמצא.",
+          ephemeral: true
+        });
+      }
+
+      if (!botMember?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+        return interaction.followUp({
+          content: "❌ לבוט אין Manage Roles.",
+          ephemeral: true
+        });
+      }
+
+      if (vipRole.position >= botMember.roles.highest.position) {
+        return interaction.followUp({
+          content: "❌ רול הבוט חייב להיות מעל רול ה־VIP.",
+          ephemeral: true
+        });
+      }
+
+      if (!targetMember.manageable) {
+        return interaction.followUp({
+          content:
+            "❌ הבוט לא יכול לשנות את הכינוי של המשתמש הזה. " +
+            "תעלה את רול הבוט מעל הרול שלו.",
+          ephemeral: true
+        });
+      }
+
+      const roleAdded = await targetMember.roles
+        .add(
+          vipRole,
+          `VIP request approved by ${interaction.user.tag}`
+        )
+        .then(() => true)
+        .catch(error => {
+          console.error("VIP role add error:", error);
+          return false;
+        });
+
+      if (!roleAdded) {
+        return interaction.followUp({
+          content:
+            "❌ לא הצלחתי להוסיף את רול ה־VIP. " +
+            "בדוק הרשאות ומיקום רולים.",
+          ephemeral: true
+        });
+      }
+
+      const newNickname = buildVipNickname(targetMember);
+
+      const nicknameChanged = await targetMember
+        .setNickname(
+          newNickname,
+          `VIP approved by ${interaction.user.tag}`
+        )
+        .then(() => true)
+        .catch(error => {
+          console.error("VIP nickname error:", error);
+          return false;
+        });
+
+      const approvedEmbed = EmbedBuilder
+        .from(interaction.message.embeds[0])
+        .setColor("Green")
+        .setTitle("✅ בקשת VIP אושרה")
+        .addFields(
+          {
+            name: "אושר על ידי",
+            value: `${interaction.user}`
+          },
+          {
+            name: "תוצאה",
+            value:
+              `רול VIP: **נוסף**\n` +
+              `כינוי: **${
+                nicknameChanged
+                  ? newNickname
+                  : "הרול נוסף, אך הכינוי לא שונה"
+              }**`
+          }
+        )
+        .setTimestamp();
+
+      await interaction.message.edit({
+        content: "",
+        embeds: [approvedEmbed],
+        components: vipRequestButtons(
+          targetId,
+          requesterId,
+          true
+        )
+      });
+
+      const requester = await interaction.guild.members
+        .fetch(requesterId)
+        .catch(() => null);
+
+      requester?.send(
+        `✅ בקשת ה־VIP ששלחת עבור ${targetMember.user.tag} אושרה על ידי ${interaction.user.tag}.`
+      ).catch(() => {});
+
+      targetMember.send(
+        `👑 בקשת ה־VIP שלך אושרה! קיבלת את רול ה־VIP בשרת **${interaction.guild.name}**.`
+      ).catch(() => {});
+
+      return;
+    } catch (error) {
+      console.error("VIP button error:", error);
+
+      if (interaction.deferred || interaction.replied) {
+        return interaction.followUp({
+          content:
+            "❌ הייתה שגיאה בטיפול בבקשת ה־VIP.\n" +
+            `שגיאה: \`${error.code || error.message}\``,
+          ephemeral: true
+        }).catch(() => {});
+      }
+
+      return interaction.reply({
+        content:
+          "❌ הייתה שגיאה בטיפול בבקשת ה־VIP.\n" +
+          `שגיאה: \`${error.code || error.message}\``,
+        ephemeral: true
+      }).catch(() => {});
+    }
   }
 
   if (interaction.customId === "start_verify") {
