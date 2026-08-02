@@ -24,6 +24,23 @@ const commands = [
     .setDescription("שולח פאנל טיקטים")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
+  // 👑 VIP Request
+  new SlashCommandBuilder()
+    .setName("vip-request")
+    .setDescription("שליחת בקשה ל-VIP")
+    .addUserOption(option =>
+      option
+        .setName("user")
+        .setDescription("המשתמש שיקבל VIP")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("reason")
+        .setDescription("למה מגיע לו VIP")
+        .setRequired(true)
+    ),
+
   new SlashCommandBuilder()
     .setName("approve-bot")
     .setDescription("ניהול בוטים מאושרים לאנטי ניוק")
@@ -35,7 +52,7 @@ const commands = [
         .addStringOption(option =>
           option
             .setName("bot_id")
-            .setDescription("ה־ID של הבוט")
+            .setDescription("ה-ID של הבוט")
             .setRequired(true)
         )
         .addStringOption(option =>
@@ -62,7 +79,7 @@ const commands = [
         .addStringOption(option =>
           option
             .setName("bot_id")
-            .setDescription("ה־ID של הבוט")
+            .setDescription("ה-ID של הבוט")
             .setRequired(true)
         )
     )
@@ -101,6 +118,7 @@ const commands = [
         .setRequired(true)
         .setAutocomplete(true)
     )
+
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
@@ -125,7 +143,10 @@ async function deployCommands() {
     }
 
     await rest.put(
-      Routes.applicationGuildCommands(config.clientId, config.guildId),
+      Routes.applicationGuildCommands(
+        config.clientId,
+        config.guildId
+      ),
       { body: commands }
     );
 
