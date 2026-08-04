@@ -160,7 +160,73 @@ function buildVipNickname(member) {
 
   return `VIP | ${cleanName}`.slice(0, 32);
 }
-\n\nconst VIP_REQUESTS_PER_MONTH = 3;\n\nfunction getMonthIndex(date = new Date()) {\n  return date.getUTCFullYear() * 12 + date.getUTCMonth();\n}\n\nfunction getMonthKey(date = new Date()) {\n  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;\n}\n\nfunction getVipRequestAccount(userId) {\n  const currentMonthIndex = getMonthIndex();\n\n  if (!vipRequestsData[userId]) {\n    vipRequestsData[userId] = {\n      balance: VIP_REQUESTS_PER_MONTH,\n      lastGrantMonthIndex: currentMonthIndex,\n      lastGrantMonth: getMonthKey(),\n      totalApproved: 0,\n      totalReceived: VIP_REQUESTS_PER_MONTH\n    };\n\n    saveJson(VIP_REQUESTS_FILE, vipRequestsData);\n    return vipRequestsData[userId];\n  }\n\n  const account = vipRequestsData[userId];\n\n  if (!Number.isInteger(account.balance)) account.balance = 0;\n  if (!Number.isInteger(account.totalApproved)) account.totalApproved = 0;\n  if (!Number.isInteger(account.totalReceived)) account.totalReceived = 0;\n\n  const lastMonthIndex = Number.isInteger(account.lastGrantMonthIndex)\n    ? account.lastGrantMonthIndex\n    : currentMonthIndex;\n\n  const monthsPassed = Math.max(0, currentMonthIndex - lastMonthIndex);\n\n  if (monthsPassed > 0) {\n    const added = monthsPassed * VIP_REQUESTS_PER_MONTH;\n\n    account.balance += added;\n    account.totalReceived += added;\n    account.lastGrantMonthIndex = currentMonthIndex;\n    account.lastGrantMonth = getMonthKey();\n\n    saveJson(VIP_REQUESTS_FILE, vipRequestsData);\n  }\n\n  return account;\n}\n\nfunction useVipRequest(userId) {\n  const account = getVipRequestAccount(userId);\n\n  if (account.balance < 1) {\n    return { success: false, account };\n  }\n\n  account.balance -= 1;\n  account.totalApproved += 1;\n  saveJson(VIP_REQUESTS_FILE, vipRequestsData);\n\n  return { success: true, account };\n}\n
+
+
+const VIP_REQUESTS_PER_MONTH = 3;
+
+function getMonthIndex(date = new Date()) {
+  return date.getUTCFullYear() * 12 + date.getUTCMonth();
+}
+
+function getMonthKey(date = new Date()) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function getVipRequestAccount(userId) {
+  const currentMonthIndex = getMonthIndex();
+
+  if (!vipRequestsData[userId]) {
+    vipRequestsData[userId] = {
+      balance: VIP_REQUESTS_PER_MONTH,
+      lastGrantMonthIndex: currentMonthIndex,
+      lastGrantMonth: getMonthKey(),
+      totalApproved: 0,
+      totalReceived: VIP_REQUESTS_PER_MONTH
+    };
+
+    saveJson(VIP_REQUESTS_FILE, vipRequestsData);
+    return vipRequestsData[userId];
+  }
+
+  const account = vipRequestsData[userId];
+
+  if (!Number.isInteger(account.balance)) account.balance = 0;
+  if (!Number.isInteger(account.totalApproved)) account.totalApproved = 0;
+  if (!Number.isInteger(account.totalReceived)) account.totalReceived = 0;
+
+  const lastMonthIndex = Number.isInteger(account.lastGrantMonthIndex)
+    ? account.lastGrantMonthIndex
+    : currentMonthIndex;
+
+  const monthsPassed = Math.max(0, currentMonthIndex - lastMonthIndex);
+
+  if (monthsPassed > 0) {
+    const added = monthsPassed * VIP_REQUESTS_PER_MONTH;
+
+    account.balance += added;
+    account.totalReceived += added;
+    account.lastGrantMonthIndex = currentMonthIndex;
+    account.lastGrantMonth = getMonthKey();
+
+    saveJson(VIP_REQUESTS_FILE, vipRequestsData);
+  }
+
+  return account;
+}
+
+function useVipRequest(userId) {
+  const account = getVipRequestAccount(userId);
+
+  if (account.balance < 1) {
+    return { success: false, account };
+  }
+
+  account.balance -= 1;
+  account.totalApproved += 1;
+  saveJson(VIP_REQUESTS_FILE, vipRequestsData);
+
+  return { success: true, account };
+}
 async function sendVerifyPanel(channel) {
   const embed = new EmbedBuilder()
     .setColor("Blue")
