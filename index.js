@@ -31,6 +31,7 @@ const BACKUP_FILE = path.join(DATA_DIR, "messages.json");
 const ALLOWED_BOTS_FILE = path.join(DATA_DIR, "allowed-bots.json");
 const DELETED_CHANNELS_FILE = path.join(DATA_DIR, "deleted-channels.json");
 const DELETED_ROLES_FILE = path.join(DATA_DIR, "deleted-roles.json");
+const VIP_REQUESTS_FILE = path.join(DATA_DIR, "vip-requests.json");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
@@ -56,6 +57,7 @@ const messageBackups = loadJson(BACKUP_FILE, {});
 const allowedBotsData = loadJson(ALLOWED_BOTS_FILE, {});
 const deletedChannelsData = loadJson(DELETED_CHANNELS_FILE, {});
 const deletedRolesData = loadJson(DELETED_ROLES_FILE, {});
+const vipRequestsData = loadJson(VIP_REQUESTS_FILE, {});
 
 // =====================
 // CLIENT
@@ -158,7 +160,7 @@ function buildVipNickname(member) {
 
   return `VIP | ${cleanName}`.slice(0, 32);
 }
-
+\n\nconst VIP_REQUESTS_PER_MONTH = 3;\n\nfunction getMonthIndex(date = new Date()) {\n  return date.getUTCFullYear() * 12 + date.getUTCMonth();\n}\n\nfunction getMonthKey(date = new Date()) {\n  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;\n}\n\nfunction getVipRequestAccount(userId) {\n  const currentMonthIndex = getMonthIndex();\n\n  if (!vipRequestsData[userId]) {\n    vipRequestsData[userId] = {\n      balance: VIP_REQUESTS_PER_MONTH,\n      lastGrantMonthIndex: currentMonthIndex,\n      lastGrantMonth: getMonthKey(),\n      totalApproved: 0,\n      totalReceived: VIP_REQUESTS_PER_MONTH\n    };\n\n    saveJson(VIP_REQUESTS_FILE, vipRequestsData);\n    return vipRequestsData[userId];\n  }\n\n  const account = vipRequestsData[userId];\n\n  if (!Number.isInteger(account.balance)) account.balance = 0;\n  if (!Number.isInteger(account.totalApproved)) account.totalApproved = 0;\n  if (!Number.isInteger(account.totalReceived)) account.totalReceived = 0;\n\n  const lastMonthIndex = Number.isInteger(account.lastGrantMonthIndex)\n    ? account.lastGrantMonthIndex\n    : currentMonthIndex;\n\n  const monthsPassed = Math.max(0, currentMonthIndex - lastMonthIndex);\n\n  if (monthsPassed > 0) {\n    const added = monthsPassed * VIP_REQUESTS_PER_MONTH;\n\n    account.balance += added;\n    account.totalReceived += added;\n    account.lastGrantMonthIndex = currentMonthIndex;\n    account.lastGrantMonth = getMonthKey();\n\n    saveJson(VIP_REQUESTS_FILE, vipRequestsData);\n  }\n\n  return account;\n}\n\nfunction useVipRequest(userId) {\n  const account = getVipRequestAccount(userId);\n\n  if (account.balance < 1) {\n    return { success: false, account };\n  }\n\n  account.balance -= 1;\n  account.totalApproved += 1;\n  saveJson(VIP_REQUESTS_FILE, vipRequestsData);\n\n  return { success: true, account };\n}\n
 async function sendVerifyPanel(channel) {
   const embed = new EmbedBuilder()
     .setColor("Blue")
@@ -635,6 +637,14 @@ client.on("interactionCreate", async (interaction) => {
           );
         }
 
+        const vipAccount = getVipRequestAccount(interaction.user.id);
+
+        if (vipAccount.balance < 1) {
+          return interaction.editReply(
+            "❌ אין לך כרגע בקשות VIP זמינות. תקבל עוד 3 בתחילת החודש הבא."
+          );
+        }
+
         const target = interaction.options.getUser("user");
         const reason = interaction.options.getString("reason");
 
@@ -720,6 +730,10 @@ client.on("interactionCreate", async (interaction) => {
             {
               name: "📝 סיבה",
               value: reason.slice(0, 1024)
+            },
+            {
+              name: "🎟️ בקשות זמינות למבקש",
+              value: `**${vipAccount.balance}**\nבקשה תרד רק אם ה־Owner יאשר.`
             }
           )
           .setThumbnail(target.displayAvatarURL())
@@ -741,7 +755,8 @@ client.on("interactionCreate", async (interaction) => {
         });
 
         return interaction.editReply(
-          `✅ בקשת ה־VIP עבור ${target} נשלחה ל־Owners.`
+          `✅ בקשת ה־VIP עבור ${target} נשלחה ל־Owners.\n` +
+          `🎟️ יש לך כרגע **${vipAccount.balance}** בקשות זמינות. הבקשה תרד רק אם תאושר.`
         );
       } catch (error) {
         console.error("VIP request error:", error);
@@ -753,7 +768,7 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
-    if (interaction.commandName === "approve-bot") {
+\n    if (interaction.commandName === "vip-requests") {\n      if (!hasVipConfig()) {\n        return interaction.reply({\n          content: "❌ חסרים IDs של מערכת VIP ב־config.js.",\n          ephemeral: true\n        });\n      }\n\n      if (!isVipStaff(interaction.member)) {\n        return interaction.reply({\n          content: "❌ רק מי שיש לו את רול ה־Staff יכול לבדוק בקשות VIP.",\n          ephemeral: true\n        });\n      }\n\n      const account = getVipRequestAccount(interaction.user.id);\n\n      return interaction.reply({\n        embeds: [\n          new EmbedBuilder()\n            .setColor("Gold")\n            .setTitle("👑 מאגר בקשות VIP")\n            .setDescription(\n              `🎟️ בקשות זמינות: **${account.balance}**\\n` +\n              `➕ תוספת חודשית: **${VIP_REQUESTS_PER_MONTH}**\\n` +\n              `✅ בקשות שאושרו בסך הכול: **${account.totalApproved}**\\n\\n` +\n              `בקשות שלא נוצלו נשמרות ומצטברות לחודשים הבאים.`\n            )\n            .setFooter({\n              text: `העדכון החודשי האחרון: ${account.lastGrantMonth || getMonthKey()}`\n            })\n            .setTimestamp()\n        ],\n        ephemeral: true\n      });\n    }\n\n    if (interaction.commandName === "approve-bot") {
       if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({ content: "רק אדמין יכול להשתמש בזה.", ephemeral: true });
       }
@@ -1180,6 +1195,17 @@ client.on("interactionCreate", async (interaction) => {
         });
       }
 
+      const requestUse = useVipRequest(requesterId);
+
+      if (!requestUse.success) {
+        return interaction.followUp({
+          content:
+            "❌ למי ששלח את הבקשה כבר אין בקשות VIP זמינות. " +
+            "הבקשה לא אושרה ולא בוצע שינוי.",
+          ephemeral: true
+        });
+      }
+
       const roleAdded = await targetMember.roles
         .add(
           vipRole,
@@ -1192,10 +1218,17 @@ client.on("interactionCreate", async (interaction) => {
         });
 
       if (!roleAdded) {
+        requestUse.account.balance += 1;
+        requestUse.account.totalApproved = Math.max(
+          0,
+          requestUse.account.totalApproved - 1
+        );
+        saveJson(VIP_REQUESTS_FILE, vipRequestsData);
+
         return interaction.followUp({
           content:
             "❌ לא הצלחתי להוסיף את רול ה־VIP. " +
-            "בדוק הרשאות ומיקום רולים.",
+            "הבקשה הוחזרה למבקש. בדוק הרשאות ומיקום רולים.",
           ephemeral: true
         });
       }
@@ -1230,7 +1263,8 @@ client.on("interactionCreate", async (interaction) => {
                 nicknameChanged
                   ? newNickname
                   : "הרול נוסף, אך הכינוי לא שונה"
-              }**`
+              }**\n` +
+              `בקשות שנותרו למבקש: **${requestUse.account.balance}**`
           }
         )
         .setTimestamp();
