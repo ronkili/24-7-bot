@@ -169,7 +169,9 @@ function getMonthIndex(date = new Date()) {
 }
 
 function getMonthKey(date = new Date()) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${date.getUTCFullYear()}-${String(
+    date.getUTCMonth() + 1
+  ).padStart(2, "0")}`;
 }
 
 function getVipRequestAccount(userId) {
@@ -198,7 +200,10 @@ function getVipRequestAccount(userId) {
     ? account.lastGrantMonthIndex
     : currentMonthIndex;
 
-  const monthsPassed = Math.max(0, currentMonthIndex - lastMonthIndex);
+  const monthsPassed = Math.max(
+    0,
+    currentMonthIndex - lastMonthIndex
+  );
 
   if (monthsPassed > 0) {
     const added = monthsPassed * VIP_REQUESTS_PER_MONTH;
@@ -218,15 +223,23 @@ function useVipRequest(userId) {
   const account = getVipRequestAccount(userId);
 
   if (account.balance < 1) {
-    return { success: false, account };
+    return {
+      success: false,
+      account
+    };
   }
 
   account.balance -= 1;
   account.totalApproved += 1;
+
   saveJson(VIP_REQUESTS_FILE, vipRequestsData);
 
-  return { success: true, account };
+  return {
+    success: true,
+    account
+  };
 }
+
 async function sendVerifyPanel(channel) {
   const embed = new EmbedBuilder()
     .setColor("Blue")
@@ -707,7 +720,8 @@ client.on("interactionCreate", async (interaction) => {
 
         if (vipAccount.balance < 1) {
           return interaction.editReply(
-            "❌ אין לך כרגע בקשות VIP זמינות. תקבל עוד 3 בתחילת החודש הבא."
+            "❌ אין לך כרגע בקשות VIP זמינות. " +
+            "תקבל עוד 3 בתחילת החודש הבא."
           );
         }
 
@@ -799,7 +813,9 @@ client.on("interactionCreate", async (interaction) => {
             },
             {
               name: "🎟️ בקשות זמינות למבקש",
-              value: `**${vipAccount.balance}**\nבקשה תרד רק אם ה־Owner יאשר.`
+              value:
+                `**${vipAccount.balance}**\n` +
+                "בקשה תרד רק אם ה־Owner יאשר."
             }
           )
           .setThumbnail(target.displayAvatarURL())
@@ -822,7 +838,8 @@ client.on("interactionCreate", async (interaction) => {
 
         return interaction.editReply(
           `✅ בקשת ה־VIP עבור ${target} נשלחה ל־Owners.\n` +
-          `🎟️ יש לך כרגע **${vipAccount.balance}** בקשות זמינות. הבקשה תרד רק אם תאושר.`
+          `🎟️ יש לך כרגע **${vipAccount.balance}** בקשות זמינות. ` +
+          "הבקשה תרד רק אם תאושר."
         );
       } catch (error) {
         console.error("VIP request error:", error);
@@ -834,7 +851,48 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
-\n    if (interaction.commandName === "vip-requests") {\n      if (!hasVipConfig()) {\n        return interaction.reply({\n          content: "❌ חסרים IDs של מערכת VIP ב־config.js.",\n          ephemeral: true\n        });\n      }\n\n      if (!isVipStaff(interaction.member)) {\n        return interaction.reply({\n          content: "❌ רק מי שיש לו את רול ה־Staff יכול לבדוק בקשות VIP.",\n          ephemeral: true\n        });\n      }\n\n      const account = getVipRequestAccount(interaction.user.id);\n\n      return interaction.reply({\n        embeds: [\n          new EmbedBuilder()\n            .setColor("Gold")\n            .setTitle("👑 מאגר בקשות VIP")\n            .setDescription(\n              `🎟️ בקשות זמינות: **${account.balance}**\\n` +\n              `➕ תוספת חודשית: **${VIP_REQUESTS_PER_MONTH}**\\n` +\n              `✅ בקשות שאושרו בסך הכול: **${account.totalApproved}**\\n\\n` +\n              `בקשות שלא נוצלו נשמרות ומצטברות לחודשים הבאים.`\n            )\n            .setFooter({\n              text: `העדכון החודשי האחרון: ${account.lastGrantMonth || getMonthKey()}`\n            })\n            .setTimestamp()\n        ],\n        ephemeral: true\n      });\n    }\n\n    if (interaction.commandName === "approve-bot") {
+
+    if (interaction.commandName === "vip-requests") {
+      if (!hasVipConfig()) {
+        return interaction.reply({
+          content: "❌ חסרים IDs של מערכת VIP ב־config.js.",
+          ephemeral: true
+        });
+      }
+
+      if (!isVipStaff(interaction.member)) {
+        return interaction.reply({
+          content:
+            "❌ רק מי שיש לו את רול ה־Staff יכול לבדוק בקשות VIP.",
+          ephemeral: true
+        });
+      }
+
+      const account = getVipRequestAccount(interaction.user.id);
+
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Gold")
+            .setTitle("👑 מאגר בקשות VIP")
+            .setDescription(
+              `🎟️ בקשות זמינות: **${account.balance}**\n` +
+              `➕ תוספת חודשית: **${VIP_REQUESTS_PER_MONTH}**\n` +
+              `✅ בקשות שאושרו בסך הכול: **${account.totalApproved}**\n\n` +
+              "בקשות שלא נוצלו נשמרות ומצטברות לחודשים הבאים."
+            )
+            .setFooter({
+              text:
+                `העדכון החודשי האחרון: ` +
+                `${account.lastGrantMonth || getMonthKey()}`
+            })
+            .setTimestamp()
+        ],
+        ephemeral: true
+      });
+    }
+
+    if (interaction.commandName === "approve-bot") {
       if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({ content: "רק אדמין יכול להשתמש בזה.", ephemeral: true });
       }
@@ -1289,6 +1347,7 @@ client.on("interactionCreate", async (interaction) => {
           0,
           requestUse.account.totalApproved - 1
         );
+
         saveJson(VIP_REQUESTS_FILE, vipRequestsData);
 
         return interaction.followUp({
