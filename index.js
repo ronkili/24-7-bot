@@ -76,31 +76,67 @@ const client = new Client({
 });
 
 client.once(Events.ClientReady, async (readyClient) => {
-    console.log(`✅ Logged in as ${readyClient.user.tag}`);
+  console.log(`✅ Logged in as ${readyClient.user.tag}`);
 
-    const updatePresence = async () => {
-        const guild = readyClient.guilds.cache.get(config.guildId);
-        if (!guild) return;
+  const updatePresence = () => {
+    const guild = readyClient.guilds.cache.get(config.guildId);
 
-        await guild.members.fetch();
+    if (!guild) {
+      console.log("❌ Guild not found for presence");
+      return;
+    }
 
-        readyClient.user.setPresence({
-            status: "idle", // 🌙
-            activities: [
-                {
-                    name: `${guild.memberCount.toLocaleString()} Members`,
-                    type: ActivityType.Watching
-                }
-            ]
-        });
-    };
+    readyClient.user.setPresence({
+      status: "idle",
+      afk: true,
+      activities: [
+        {
+          name: `${guild.memberCount.toLocaleString("en-US")} Members`,
+          type: ActivityType.Watching
+        }
+      ]
+    });
 
-    await updatePresence();
+    console.log(
+      `🌙 Presence updated: Watching ${guild.memberCount} Members`
+    );
+  };
 
-    client.on(Events.GuildMemberAdd, updatePresence);
-    client.on(Events.GuildMemberRemove, updatePresence);
+  updatePresence();
 
-    setInterval(updatePresence, 60 * 1000);
+  setInterval(updatePresence, 60 * 1000);
+});
+
+client.on(Events.GuildMemberAdd, () => {
+  const guild = client.guilds.cache.get(config.guildId);
+  if (!guild) return;
+
+  client.user.setPresence({
+    status: "idle",
+    afk: true,
+    activities: [
+      {
+        name: `${guild.memberCount.toLocaleString("en-US")} Members`,
+        type: ActivityType.Watching
+      }
+    ]
+  });
+});
+
+client.on(Events.GuildMemberRemove, () => {
+  const guild = client.guilds.cache.get(config.guildId);
+  if (!guild) return;
+
+  client.user.setPresence({
+    status: "idle",
+    afk: true,
+    activities: [
+      {
+        name: `${guild.memberCount.toLocaleString("en-US")} Members`,
+        type: ActivityType.Watching
+      }
+    ]
+  });
 });
 // =====================
 // HELPERS
