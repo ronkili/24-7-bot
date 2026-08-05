@@ -75,18 +75,24 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
-client.once(Events.ClientReady, (readyClient) => {
-  console.log(`✅ Logged in as ${readyClient.user.tag}`);
+client.once(Events.ClientReady, async (client) => {
+    console.log(`✅ Logged in as ${client.user.tag}`);
 
-  readyClient.user.setPresence({
-    status: "idle", // 🌙 ירח צהוב
-    activities: [
-      {
-        name: "השרת",
-        type: ActivityType.Watching,
-      },
-    ],
-  });
+    const guild = client.guilds.cache.get("ID_של_השרת");
+
+    if (guild) {
+        await guild.members.fetch();
+
+        client.user.setPresence({
+            status: "idle",
+            activities: [
+                {
+                    name: `${guild.memberCount} Members`,
+                    type: ActivityType.Watching,
+                },
+            ],
+        });
+    }
 });
 
 // =====================
