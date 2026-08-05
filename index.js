@@ -4,21 +4,21 @@ const fs = require("fs");
 const path = require("path");
 
 const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder,
-  ChannelType,
-  PermissionFlagsBits,
-  AuditLogEvent,
-  Events,
-  AttachmentBuilder,
-  ActivityType
+    Client,
+    GatewayIntentBits,
+    Partials,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    StringSelectMenuBuilder,
+    StringSelectMenuOptionBuilder,
+    ChannelType,
+    PermissionFlagsBits,
+    AuditLogEvent,
+    Events,
+    AttachmentBuilder,
+    ActivityType
 } = require("discord.js");
 
 const config = require("./config");
@@ -75,26 +75,33 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
-client.once(Events.ClientReady, async (client) => {
-    console.log(`✅ Logged in as ${client.user.tag}`);
+client.once(Events.ClientReady, async (readyClient) => {
+    console.log(`✅ Logged in as ${readyClient.user.tag}`);
 
-    const guild = client.guilds.cache.get("ID_של_השרת");
+    const updatePresence = async () => {
+        const guild = readyClient.guilds.cache.get(config.guildId);
+        if (!guild) return;
 
-    if (guild) {
         await guild.members.fetch();
 
-        client.user.setPresence({
-            status: "idle",
+        readyClient.user.setPresence({
+            status: "idle", // 🌙
             activities: [
                 {
-                    name: `${guild.memberCount} Members`,
-                    type: ActivityType.Watching,
-                },
-            ],
+                    name: `${guild.memberCount.toLocaleString()} Members`,
+                    type: ActivityType.Watching
+                }
+            ]
         });
-    }
-});
+    };
 
+    await updatePresence();
+
+    client.on(Events.GuildMemberAdd, updatePresence);
+    client.on(Events.GuildMemberRemove, updatePresence);
+
+    setInterval(updatePresence, 60 * 1000);
+});
 // =====================
 // HELPERS
 // =====================
