@@ -76,6 +76,16 @@ const client = new Client({
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Logged in as ${readyClient.user.tag}`);
+
+  readyClient.user.setPresence({
+    status: "idle", // 🌙 ירח צהוב
+    activities: [
+      {
+        name: "השרת",
+        type: ActivityType.Watching,
+      },
+    ],
+  });
 });
 
 // =====================
