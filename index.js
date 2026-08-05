@@ -17,7 +17,8 @@ const {
   PermissionFlagsBits,
   AuditLogEvent,
   Events,
-  AttachmentBuilder
+  AttachmentBuilder,
+  ActivityType
 } = require("discord.js");
 
 const config = require("./config");
