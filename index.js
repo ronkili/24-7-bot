@@ -78,9 +78,49 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
-client.once(Events.ClientReady, (readyClient) => {
-  console.log(`✅ Logged in as ${readyClient.user.tag}`);
+// =====================
+// BOT PRESENCE
+// =====================
+
+const { ActivityType, Events } = require("discord.js");
+
+function updateMemberPresence() {
+  const guild = client.guilds.cache.get(config.guildId);
+
+  if (!guild || !client.user) return;
+
+  client.user.setPresence({
+    status: "idle", // 🌙 Idle
+    afk: true,
+    activities: [
+      {
+        type: ActivityType.Watching,
+        name: `${guild.memberCount.toLocaleString("en-US")} Members`
+      }
+    ]
+  });
+
+  console.log(
+    `🌙 Watching ${guild.memberCount.toLocaleString("en-US")} Members`
+  );
+}
+
+client.once(Events.ClientReady, () => {
+  updateMemberPresence();
+
+  // מעדכן כל דקה
+  setInterval(updateMemberPresence, 60 * 1000);
 });
+
+// מתעדכן כשמישהו נכנס
+client.on(Events.GuildMemberAdd, () => {
+  updateMemberPresence();
+});
+
+// מתעדכן כשמישהו יוצא
+client.on(Events.GuildMemberRemove, () => {
+  updateMemberPresence();
+});;
 
 // =====================
 // HELPERS
