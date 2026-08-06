@@ -25,104 +25,66 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   new SlashCommandBuilder()
+    .setName("vip-request")
+    .setDescription("שולח בקשה ל־Owners לתת VIP למשתמש")
+    .addUserOption(option =>
+      option.setName("user").setDescription("המשתמש שעבורו מבקשים VIP").setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName("reason").setDescription("למה המשתמש צריך לקבל VIP").setRequired(true).setMinLength(3).setMaxLength(500)
+    ),
+
+  new SlashCommandBuilder()
     .setName("vip-requests")
     .setDescription("מציג כמה בקשות VIP זמינות נשארו לך"),
 
   new SlashCommandBuilder()
-    .setName("vip-request")
-    .setDescription("שולח בקשה ל־Owners לתת VIP למשתמש")
+    .setName("add-vip-request")
+    .setDescription("מוסיף בקשות VIP למשתמש - Owners בלבד")
     .addUserOption(option =>
-      option
-        .setName("user")
-        .setDescription("המשתמש שעבורו מבקשים VIP")
-        .setRequired(true)
+      option.setName("user").setDescription("המשתמש שיקבל בקשות VIP").setRequired(true)
     )
-    .addStringOption(option =>
-      option
-        .setName("reason")
-        .setDescription("למה המשתמש צריך לקבל VIP")
-        .setRequired(true)
-        .setMinLength(3)
-        .setMaxLength(500)
+    .addIntegerOption(option =>
+      option.setName("amount").setDescription("כמה בקשות להוסיף").setRequired(true).setMinValue(1)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("remove-vip-request")
+    .setDescription("מוריד בקשות VIP ממשתמש - Owners בלבד")
+    .addUserOption(option =>
+      option.setName("user").setDescription("המשתמש שממנו יורידו בקשות VIP").setRequired(true)
+    )
+    .addIntegerOption(option =>
+      option.setName("amount").setDescription("כמה בקשות להוריד").setRequired(true).setMinValue(1)
     ),
 
   new SlashCommandBuilder()
     .setName("approve-bot")
     .setDescription("ניהול בוטים מאושרים לאנטי ניוק")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addSubcommand(sub =>
-      sub
-        .setName("add")
-        .setDescription("מאשר בוט לפי ID")
-        .addStringOption(option =>
-          option
-            .setName("bot_id")
-            .setDescription("ה־ID של הבוט")
-            .setRequired(true)
-        )
-        .addStringOption(option =>
-          option
-            .setName("access")
-            .setDescription("איזה גישה לתת לבוט")
-            .setRequired(true)
-            .addChoices(
-              {
-                name: "join_only - יכול להיכנס, נענש אם מוחק",
-                value: "join_only"
-              },
-              {
-                name: "trusted - בוט אמין",
-                value: "trusted"
-              }
-            )
-        )
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("remove")
-        .setDescription("מוחק בוט מהרשימה")
-        .addStringOption(option =>
-          option
-            .setName("bot_id")
-            .setDescription("ה־ID של הבוט")
-            .setRequired(true)
-        )
-    )
-    .addSubcommand(sub =>
-      sub
-        .setName("list")
-        .setDescription("מציג בוטים מאושרים")
-    ),
+    .addSubcommand(sub => sub.setName("add").setDescription("מאשר בוט לפי ID")
+      .addStringOption(option => option.setName("bot_id").setDescription("ה־ID של הבוט").setRequired(true))
+      .addStringOption(option => option.setName("access").setDescription("איזה גישה לתת לבוט").setRequired(true)
+        .addChoices(
+          { name: "join_only - יכול להיכנס, נענש אם מוחק", value: "join_only" },
+          { name: "trusted - בוט אמין", value: "trusted" }
+        )))
+    .addSubcommand(sub => sub.setName("remove").setDescription("מוחק בוט מהרשימה")
+      .addStringOption(option => option.setName("bot_id").setDescription("ה־ID של הבוט").setRequired(true)))
+    .addSubcommand(sub => sub.setName("list").setDescription("מציג בוטים מאושרים")),
 
   new SlashCommandBuilder()
     .setName("restore-channel")
     .setDescription("משחזר חדר שנמחק מהרשימה")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
-    .addStringOption(option =>
-      option
-        .setName("channel")
-        .setDescription("בחר חדר שנמחק")
-        .setRequired(true)
-        .setAutocomplete(true)
-    )
-    .addBooleanOption(option =>
-      option
-        .setName("restore_messages")
-        .setDescription("לשחזר גם הודעות שמורות?")
-        .setRequired(true)
-    ),
+    .addStringOption(option => option.setName("channel").setDescription("בחר חדר שנמחק").setRequired(true).setAutocomplete(true))
+    .addBooleanOption(option => option.setName("restore_messages").setDescription("לשחזר גם הודעות שמורות?").setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("restore-role")
     .setDescription("משחזר רול שנמחק מהרשימה")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-    .addStringOption(option =>
-      option
-        .setName("role")
-        .setDescription("בחר רול שנמחק")
-        .setRequired(true)
-        .setAutocomplete(true)
-    )
+    .addStringOption(option => option.setName("role").setDescription("בחר רול שנמחק").setRequired(true).setAutocomplete(true))
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
