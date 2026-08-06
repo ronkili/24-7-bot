@@ -96,6 +96,12 @@ const commands = [
         .setMinValue(1)
         .setMaxValue(20)
     )
+    .addStringOption(option =>
+      option.setName("requirements")
+        .setDescription("החובות להשתתפות בהגרלה")
+        .setRequired(true)
+        .setMaxLength(1000)
+    )
     .addChannelOption(option =>
       option.setName("channel")
         .setDescription("החדר שבו תישלח ההגרלה")
