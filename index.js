@@ -4,21 +4,21 @@ const fs = require("fs");
 const path = require("path");
 
 const {
-    Client,
-    GatewayIntentBits,
-    Partials,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    StringSelectMenuBuilder,
-    StringSelectMenuOptionBuilder,
-    ChannelType,
-    PermissionFlagsBits,
-    AuditLogEvent,
-    Events,
-    AttachmentBuilder,
-    ActivityType
+  Client,
+  GatewayIntentBits,
+  Partials,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  ChannelType,
+  PermissionFlagsBits,
+  AuditLogEvent,
+  Events,
+  AttachmentBuilder,
+  ActivityType
 } = require("discord.js");
 
 const config = require("./config");
@@ -75,69 +75,43 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
-client.once(Events.ClientReady, async (readyClient) => {
+function updateMemberPresence() {
+  const guild = client.guilds.cache.get(config.guildId);
+
+  if (!guild || !client.user) return;
+
+  client.user.setPresence({
+    status: "idle",
+    afk: true,
+    activities: [
+      {
+        name: `${guild.memberCount.toLocaleString("en-US")} Members`,
+        type: ActivityType.Watching
+      }
+    ]
+  });
+
+  console.log(
+    `🌙 Presence updated: Watching ${guild.memberCount.toLocaleString("en-US")} Members`
+  );
+}
+
+client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Logged in as ${readyClient.user.tag}`);
 
-  const updatePresence = () => {
-    const guild = readyClient.guilds.cache.get(config.guildId);
+  updateMemberPresence();
 
-    if (!guild) {
-      console.log("❌ Guild not found for presence");
-      return;
-    }
-
-    readyClient.user.setPresence({
-      status: "idle",
-      afk: true,
-      activities: [
-        {
-          name: `${guild.memberCount.toLocaleString("en-US")} Members`,
-          type: ActivityType.Watching
-        }
-      ]
-    });
-
-    console.log(
-      `🌙 Presence updated: Watching ${guild.memberCount} Members`
-    );
-  };
-
-  updatePresence();
-
-  setInterval(updatePresence, 60 * 1000);
+  setInterval(updateMemberPresence, 60 * 1000);
 });
 
 client.on(Events.GuildMemberAdd, () => {
-  const guild = client.guilds.cache.get(config.guildId);
-  if (!guild) return;
-
-  client.user.setPresence({
-    status: "idle",
-    afk: true,
-    activities: [
-      {
-        name: `${guild.memberCount.toLocaleString("en-US")} Members`,
-        type: ActivityType.Watching
-      }
-    ]
-  });
+  updateMemberPresence();
 });
 
 client.on(Events.GuildMemberRemove, () => {
-  const guild = client.guilds.cache.get(config.guildId);
-  if (!guild) return;
-
-  client.user.setPresence({
-    status: "idle",
-    afk: true,
-    activities: [
-      {
-        name: `${guild.memberCount.toLocaleString("en-US")} Members`,
-        type: ActivityType.Watching
-      }
-    ]
-  });
+  updateMemberPresence();
 });
+
 // =====================
 // HELPERS
 // =====================
@@ -945,6 +919,84 @@ client.on("interactionCreate", async (interaction) => {
               text:
                 `העדכון החודשי האחרון: ` +
                 `${account.lastGrantMonth || getMonthKey()}`
+            })
+            .setTimestamp()
+        ],
+        ephemeral: true
+      });
+    }
+
+
+    if (
+      interaction.commandName === "add-vip-request" ||
+      interaction.commandName === "remove-vip-request"
+    ) {
+      if (!hasVipConfig()) {
+        return interaction.reply({
+          content: "❌ חסרים IDs של מערכת VIP ב־config.js.",
+          ephemeral: true
+        });
+      }
+
+      if (!isVipOwner(interaction.member)) {
+        return interaction.reply({
+          content:
+            "❌ רק מי שיש לו את רול ה־Owners יכול להשתמש בפקודה הזאת.",
+          ephemeral: true
+        });
+      }
+
+      const target = interaction.options.getUser("user");
+      const amount = interaction.options.getInteger("amount");
+
+      if (!target || !Number.isInteger(amount) || amount < 1) {
+        return interaction.reply({
+          content: "❌ המשתמש או הכמות אינם תקינים.",
+          ephemeral: true
+        });
+      }
+
+      if (target.bot) {
+        return interaction.reply({
+          content: "❌ אי אפשר לנהל בקשות VIP של בוט.",
+          ephemeral: true
+        });
+      }
+
+      const account = getVipRequestAccount(target.id);
+      const before = account.balance;
+      const isAdd =
+        interaction.commandName === "add-vip-request";
+
+      if (isAdd) {
+        account.balance += amount;
+        account.totalReceived += amount;
+      } else {
+        account.balance = Math.max(
+          0,
+          account.balance - amount
+        );
+      }
+
+      saveJson(VIP_REQUESTS_FILE, vipRequestsData);
+
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(isAdd ? "Green" : "Red")
+            .setTitle(
+              isAdd
+                ? "✅ נוספו בקשות VIP"
+                : "➖ הוסרו בקשות VIP"
+            )
+            .setDescription(
+              `👤 משתמש: ${target}\n` +
+              `📦 לפני: **${before}**\n` +
+              `🔄 שינוי: **${isAdd ? "+" : "-"}${amount}**\n` +
+              `🎟️ עכשיו: **${account.balance}**`
+            )
+            .setFooter({
+              text: `בוצע על ידי ${interaction.user.tag}`
             })
             .setTimestamp()
         ],
