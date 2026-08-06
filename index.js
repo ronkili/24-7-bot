@@ -17,7 +17,8 @@ const {
   PermissionFlagsBits,
   AuditLogEvent,
   Events,
-  AttachmentBuilder
+  AttachmentBuilder,
+  ActivityType
 } = require("discord.js");
 
 const config = require("./config");
@@ -78,49 +79,45 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
-// =====================
-// BOT PRESENCE
-// =====================
-
-const { ActivityType, Events } = require("discord.js");
-
 function updateMemberPresence() {
   const guild = client.guilds.cache.get(config.guildId);
 
-  if (!guild || !client.user) return;
+  if (!guild || !client.user) {
+    return;
+  }
 
   client.user.setPresence({
-    status: "idle", // 🌙 Idle
+    status: "idle",
     afk: true,
     activities: [
       {
-        type: ActivityType.Watching,
-        name: `${guild.memberCount.toLocaleString("en-US")} Members`
+        name: `${guild.memberCount.toLocaleString("en-US")} Members`,
+        type: ActivityType.Watching
       }
     ]
   });
 
   console.log(
-    `🌙 Watching ${guild.memberCount.toLocaleString("en-US")} Members`
+    `🌙 Presence updated: Watching ${guild.memberCount.toLocaleString("en-US")} Members`
   );
 }
 
-client.once(Events.ClientReady, () => {
-  updateMemberPresence();
+client.once(Events.ClientReady, (readyClient) => {
+  console.log(`✅ Logged in as ${readyClient.user.tag}`);
 
-  // מעדכן כל דקה
+  updateMemberPresence();
+  restoreGiveawayTimers();
+
   setInterval(updateMemberPresence, 60 * 1000);
 });
 
-// מתעדכן כשמישהו נכנס
 client.on(Events.GuildMemberAdd, () => {
   updateMemberPresence();
 });
 
-// מתעדכן כשמישהו יוצא
 client.on(Events.GuildMemberRemove, () => {
   updateMemberPresence();
-});;
+});
 
 // =====================
 // HELPERS
