@@ -333,7 +333,7 @@ function giveawayJoinButton(id, disabled = false) {
 function buildGiveawayEmbed(giveaway, ended = false, winners = []) {
   const endTimestamp = Math.floor(giveaway.endsAt / 1000);
 
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setColor(ended ? "Grey" : "Purple")
     .setTitle(
       ended
@@ -349,8 +349,9 @@ function buildGiveawayEmbed(giveaway, ended = false, winners = []) {
         )
         : (
           `🎁 פרס: **${giveaway.prize}**\n` +
-          `🏆 מספר זוכים: **${giveaway.winnerCount}**\n` +
-          `⏳ מסתיים: <t:${endTimestamp}:R>\n` +
+          `🏆 זוכים: **${giveaway.winnerCount}**\n` +
+          `⏳ מסתיים: <t:${endTimestamp}:R>\n\n` +
+          `📋 חובות:\n${giveaway.requirements}\n\n` +
           `👤 נפתח על ידי: <@${giveaway.hostId}>\n\n` +
           "לחצו על הכפתור כדי להצטרף."
         )
@@ -362,12 +363,6 @@ function buildGiveawayEmbed(giveaway, ended = false, winners = []) {
     })
     .setFooter({ text: `Giveaway ID: ${giveaway.id}` })
     .setTimestamp();
-
-  if (giveaway.imageUrl) {
-    embed.setImage(giveaway.imageUrl);
-  }
-
-  return embed;
 }
 
 function pickRandomWinners(participants, amount) {
@@ -1198,6 +1193,8 @@ client.on("interactionCreate", async (interaction) => {
       );
       const winnerCount =
         interaction.options.getInteger("winners");
+      const requirements =
+        interaction.options.getString("requirements");
       const image =
         interaction.options.getAttachment("image");
       const channel =
@@ -1242,6 +1239,7 @@ client.on("interactionCreate", async (interaction) => {
         hostId: interaction.user.id,
         prize,
         winnerCount,
+        requirements,
         imageUrl: image?.url || null,
         participants: [],
         winners: [],
