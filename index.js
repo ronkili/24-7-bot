@@ -333,7 +333,7 @@ function giveawayJoinButton(id, disabled = false) {
 function buildGiveawayEmbed(giveaway, ended = false, winners = []) {
   const endTimestamp = Math.floor(giveaway.endsAt / 1000);
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(ended ? "Grey" : "Purple")
     .setTitle(
       ended
@@ -362,6 +362,12 @@ function buildGiveawayEmbed(giveaway, ended = false, winners = []) {
     })
     .setFooter({ text: `Giveaway ID: ${giveaway.id}` })
     .setTimestamp();
+
+  if (giveaway.imageUrl) {
+    embed.setImage(giveaway.imageUrl);
+  }
+
+  return embed;
 }
 
 function pickRandomWinners(participants, amount) {
@@ -1192,6 +1198,8 @@ client.on("interactionCreate", async (interaction) => {
       );
       const winnerCount =
         interaction.options.getInteger("winners");
+      const image =
+        interaction.options.getAttachment("image");
       const channel =
         interaction.options.getChannel("channel") ||
         interaction.channel;
@@ -1212,6 +1220,16 @@ client.on("interactionCreate", async (interaction) => {
         });
       }
 
+      if (
+        image &&
+        !image.contentType?.startsWith("image/")
+      ) {
+        return interaction.reply({
+          content: "❌ הקובץ שבחרת אינו תמונה.",
+          ephemeral: true
+        });
+      }
+
       await interaction.deferReply({ ephemeral: true });
 
       const id = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
@@ -1224,6 +1242,7 @@ client.on("interactionCreate", async (interaction) => {
         hostId: interaction.user.id,
         prize,
         winnerCount,
+        imageUrl: image?.url || null,
         participants: [],
         winners: [],
         createdAt: Date.now(),
