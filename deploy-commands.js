@@ -104,6 +104,11 @@ const commands = [
           ChannelType.GuildText,
           ChannelType.GuildAnnouncement
         )
+    )
+    .addAttachmentOption(option =>
+      option.setName("image")
+        .setDescription("תמונה שתופיע בהגרלה")
+        .setRequired(false)
     ),
 
   new SlashCommandBuilder()
