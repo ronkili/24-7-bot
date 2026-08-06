@@ -17,8 +17,7 @@ const {
   PermissionFlagsBits,
   AuditLogEvent,
   Events,
-  AttachmentBuilder,
-  ActivityType
+  AttachmentBuilder
 } = require("discord.js");
 
 const config = require("./config");
@@ -33,6 +32,8 @@ const ALLOWED_BOTS_FILE = path.join(DATA_DIR, "allowed-bots.json");
 const DELETED_CHANNELS_FILE = path.join(DATA_DIR, "deleted-channels.json");
 const DELETED_ROLES_FILE = path.join(DATA_DIR, "deleted-roles.json");
 const VIP_REQUESTS_FILE = path.join(DATA_DIR, "vip-requests.json");
+const GIVEAWAYS_FILE = path.join(DATA_DIR, "giveaways.json");
+const GIVEAWAY_ACCESS_FILE = path.join(DATA_DIR, "giveaway-access.json");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
@@ -59,6 +60,8 @@ const allowedBotsData = loadJson(ALLOWED_BOTS_FILE, {});
 const deletedChannelsData = loadJson(DELETED_CHANNELS_FILE, {});
 const deletedRolesData = loadJson(DELETED_ROLES_FILE, {});
 const vipRequestsData = loadJson(VIP_REQUESTS_FILE, {});
+const giveawaysData = loadJson(GIVEAWAYS_FILE, {});
+const giveawayAccessData = loadJson(GIVEAWAY_ACCESS_FILE, {});
 
 // =====================
 // CLIENT
@@ -75,41 +78,8 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
-function updateMemberPresence() {
-  const guild = client.guilds.cache.get(config.guildId);
-
-  if (!guild || !client.user) return;
-
-  client.user.setPresence({
-    status: "idle",
-    afk: true,
-    activities: [
-      {
-        name: `${guild.memberCount.toLocaleString("en-US")} Members`,
-        type: ActivityType.Watching
-      }
-    ]
-  });
-
-  console.log(
-    `🌙 Presence updated: Watching ${guild.memberCount.toLocaleString("en-US")} Members`
-  );
-}
-
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Logged in as ${readyClient.user.tag}`);
-
-  updateMemberPresence();
-
-  setInterval(updateMemberPresence, 60 * 1000);
-});
-
-client.on(Events.GuildMemberAdd, () => {
-  updateMemberPresence();
-});
-
-client.on(Events.GuildMemberRemove, () => {
-  updateMemberPresence();
 });
 
 // =====================
@@ -272,6 +242,180 @@ function useVipRequest(userId) {
     success: true,
     account
   };
+}
+
+
+const giveawayTimers = new Map();
+
+function hasGiveawayAccess(member) {
+  return Boolean(
+    member &&
+    (isVipOwner(member) || giveawayAccessData[member.id])
+  );
+}
+
+function parseDuration(input) {
+  const match = String(input || "")
+    .trim()
+    .toLowerCase()
+    .match(/^(\d+)\s*(s|m|h|d)$/);
+
+  if (!match) return null;
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const multipliers = {
+    s: 1000,
+    m: 60000,
+    h: 3600000,
+    d: 86400000
+  };
+
+  const duration = amount * multipliers[unit];
+
+  if (duration < 10000 || duration > 2592000000) {
+    return null;
+  }
+
+  return duration;
+}
+
+function giveawayJoinButton(id, disabled = false) {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`giveaway_join:${id}`)
+        .setLabel("הצטרפות להגרלה")
+        .setEmoji("🎉")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(disabled)
+    )
+  ];
+}
+
+function buildGiveawayEmbed(giveaway, ended = false, winners = []) {
+  const endTimestamp = Math.floor(giveaway.endsAt / 1000);
+
+  return new EmbedBuilder()
+    .setColor(ended ? "Grey" : "Purple")
+    .setTitle(
+      ended
+        ? `🎉 ההגרלה הסתיימה — ${giveaway.prize}`
+        : `🎉 הגרלה — ${giveaway.prize}`
+    )
+    .setDescription(
+      ended
+        ? (
+          winners.length
+            ? `🏆 זוכים: ${winners.map(id => `<@${id}>`).join(", ")}`
+            : "לא היו מספיק משתתפים לבחירת זוכים."
+        )
+        : (
+          `🎁 פרס: **${giveaway.prize}**\n` +
+          `🏆 מספר זוכים: **${giveaway.winnerCount}**\n` +
+          `⏳ מסתיים: <t:${endTimestamp}:R>\n` +
+          `👤 נפתח על ידי: <@${giveaway.hostId}>\n\n` +
+          "לחצו על הכפתור כדי להצטרף."
+        )
+    )
+    .addFields({
+      name: "👥 משתתפים",
+      value: `**${giveaway.participants.length}**`,
+      inline: true
+    })
+    .setFooter({ text: `Giveaway ID: ${giveaway.id}` })
+    .setTimestamp();
+}
+
+function pickRandomWinners(participants, amount) {
+  const pool = [...new Set(participants)];
+  const winners = [];
+
+  while (pool.length && winners.length < amount) {
+    const index = Math.floor(Math.random() * pool.length);
+    winners.push(pool.splice(index, 1)[0]);
+  }
+
+  return winners;
+}
+
+async function endGiveaway(id, endedBy = "auto") {
+  const giveaway = giveawaysData[id];
+
+  if (!giveaway || giveaway.ended) return null;
+
+  const guild = client.guilds.cache.get(giveaway.guildId);
+  if (!guild) return null;
+
+  const channel = await guild.channels
+    .fetch(giveaway.channelId)
+    .catch(() => null);
+
+  const winners = pickRandomWinners(
+    giveaway.participants,
+    giveaway.winnerCount
+  );
+
+  giveaway.ended = true;
+  giveaway.endedAt = Date.now();
+  giveaway.endedBy = endedBy;
+  giveaway.winners = winners;
+
+  saveJson(GIVEAWAYS_FILE, giveawaysData);
+
+  const timer = giveawayTimers.get(id);
+  if (timer) clearTimeout(timer);
+  giveawayTimers.delete(id);
+
+  if (channel?.isTextBased()) {
+    const message = await channel.messages
+      .fetch(giveaway.messageId)
+      .catch(() => null);
+
+    if (message) {
+      await message.edit({
+        embeds: [buildGiveawayEmbed(giveaway, true, winners)],
+        components: giveawayJoinButton(id, true)
+      }).catch(() => {});
+    }
+
+    await channel.send(
+      winners.length
+        ? `🎉 מזל טוב ${winners.map(userId => `<@${userId}>`).join(", ")}! זכיתם ב־**${giveaway.prize}**.`
+        : `😕 ההגרלה על **${giveaway.prize}** הסתיימה בלי מספיק משתתפים.`
+    ).catch(() => {});
+  }
+
+  return { giveaway, winners };
+}
+
+function scheduleGiveaway(id) {
+  const giveaway = giveawaysData[id];
+
+  if (!giveaway || giveaway.ended) return;
+
+  const oldTimer = giveawayTimers.get(id);
+  if (oldTimer) clearTimeout(oldTimer);
+
+  const timer = setTimeout(() => {
+    endGiveaway(id).catch(error => {
+      console.error("Giveaway auto-end error:", error);
+    });
+  }, Math.max(0, giveaway.endsAt - Date.now()));
+
+  giveawayTimers.set(id, timer);
+}
+
+function restoreGiveawayTimers() {
+  for (const giveaway of Object.values(giveawaysData)) {
+    if (!giveaway || giveaway.ended) continue;
+
+    if (giveaway.endsAt <= Date.now()) {
+      endGiveaway(giveaway.id).catch(() => {});
+    } else {
+      scheduleGiveaway(giveaway.id);
+    }
+  }
 }
 
 async function sendVerifyPanel(channel) {
@@ -927,79 +1071,246 @@ client.on("interactionCreate", async (interaction) => {
     }
 
 
-    if (
-      interaction.commandName === "add-vip-request" ||
-      interaction.commandName === "remove-vip-request"
-    ) {
-      if (!hasVipConfig()) {
-        return interaction.reply({
-          content: "❌ חסרים IDs של מערכת VIP ב־config.js.",
-          ephemeral: true
-        });
-      }
-
+    if (interaction.commandName === "giveaway-access") {
       if (!isVipOwner(interaction.member)) {
         return interaction.reply({
-          content:
-            "❌ רק מי שיש לו את רול ה־Owners יכול להשתמש בפקודה הזאת.",
+          content: "❌ רק Owners יכולים לנהל גישה להגרלות.",
           ephemeral: true
         });
       }
 
-      const target = interaction.options.getUser("user");
-      const amount = interaction.options.getInteger("amount");
+      const sub = interaction.options.getSubcommand();
 
-      if (!target || !Number.isInteger(amount) || amount < 1) {
+      if (sub === "add") {
+        const target = interaction.options.getUser("user");
+
+        if (target.bot) {
+          return interaction.reply({
+            content: "❌ אי אפשר לתת גישה לבוט.",
+            ephemeral: true
+          });
+        }
+
+        giveawayAccessData[target.id] = {
+          addedBy: interaction.user.id,
+          addedAt: new Date().toISOString()
+        };
+
+        saveJson(GIVEAWAY_ACCESS_FILE, giveawayAccessData);
+
         return interaction.reply({
-          content: "❌ המשתמש או הכמות אינם תקינים.",
+          content: `✅ ${target} קיבל גישה לניהול הגרלות.`,
           ephemeral: true
         });
       }
 
-      if (target.bot) {
+      if (sub === "remove") {
+        const target = interaction.options.getUser("user");
+
+        if (!giveawayAccessData[target.id]) {
+          return interaction.reply({
+            content: "❌ למשתמש הזה אין גישה מיוחדת.",
+            ephemeral: true
+          });
+        }
+
+        delete giveawayAccessData[target.id];
+        saveJson(GIVEAWAY_ACCESS_FILE, giveawayAccessData);
+
         return interaction.reply({
-          content: "❌ אי אפשר לנהל בקשות VIP של בוט.",
+          content: `✅ הגישה של ${target} הוסרה.`,
           ephemeral: true
         });
       }
 
-      const account = getVipRequestAccount(target.id);
-      const before = account.balance;
-      const isAdd =
-        interaction.commandName === "add-vip-request";
-
-      if (isAdd) {
-        account.balance += amount;
-        account.totalReceived += amount;
-      } else {
-        account.balance = Math.max(
-          0,
-          account.balance - amount
-        );
-      }
-
-      saveJson(VIP_REQUESTS_FILE, vipRequestsData);
+      const users = Object.keys(giveawayAccessData);
 
       return interaction.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor(isAdd ? "Green" : "Red")
-            .setTitle(
-              isAdd
-                ? "✅ נוספו בקשות VIP"
-                : "➖ הוסרו בקשות VIP"
-            )
+            .setColor("Blue")
+            .setTitle("🎉 בעלי גישה להגרלות")
             .setDescription(
-              `👤 משתמש: ${target}\n` +
-              `📦 לפני: **${before}**\n` +
-              `🔄 שינוי: **${isAdd ? "+" : "-"}${amount}**\n` +
-              `🎟️ עכשיו: **${account.balance}**`
+              users.length
+                ? users.map((id, index) => `**${index + 1}.** <@${id}>`).join("\n")
+                : "אין משתמשים עם גישה מיוחדת."
             )
-            .setFooter({
-              text: `בוצע על ידי ${interaction.user.tag}`
-            })
             .setTimestamp()
         ],
+        ephemeral: true
+      });
+    }
+
+    if (interaction.commandName === "giveaway-start") {
+      if (!hasGiveawayAccess(interaction.member)) {
+        return interaction.reply({
+          content: "❌ אין לך גישה לפתוח הגרלות.",
+          ephemeral: true
+        });
+      }
+
+      const prize = interaction.options.getString("prize");
+      const duration = parseDuration(
+        interaction.options.getString("duration")
+      );
+      const winnerCount =
+        interaction.options.getInteger("winners");
+      const channel =
+        interaction.options.getChannel("channel") ||
+        interaction.channel;
+
+      if (!duration) {
+        return interaction.reply({
+          content:
+            "❌ זמן לא תקין. השתמש ב־`30s`, `10m`, `2h` או `3d`. " +
+            "המינימום 10 שניות והמקסימום 30 ימים.",
+          ephemeral: true
+        });
+      }
+
+      if (!channel?.isTextBased()) {
+        return interaction.reply({
+          content: "❌ צריך לבחור חדר טקסט.",
+          ephemeral: true
+        });
+      }
+
+      await interaction.deferReply({ ephemeral: true });
+
+      const id = `${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+
+      const giveaway = {
+        id,
+        guildId: interaction.guild.id,
+        channelId: channel.id,
+        messageId: null,
+        hostId: interaction.user.id,
+        prize,
+        winnerCount,
+        participants: [],
+        winners: [],
+        createdAt: Date.now(),
+        endsAt: Date.now() + duration,
+        ended: false
+      };
+
+      const message = await channel.send({
+        embeds: [buildGiveawayEmbed(giveaway)],
+        components: giveawayJoinButton(id)
+      }).catch(() => null);
+
+      if (!message) {
+        return interaction.editReply(
+          "❌ לא הצלחתי לשלוח את ההגרלה."
+        );
+      }
+
+      giveaway.messageId = message.id;
+      giveawaysData[id] = giveaway;
+
+      saveJson(GIVEAWAYS_FILE, giveawaysData);
+      scheduleGiveaway(id);
+
+      return interaction.editReply(
+        `✅ ההגרלה נפתחה: ${message.url}\n` +
+        `🆔 Giveaway ID: \`${id}\``
+      );
+    }
+
+    if (interaction.commandName === "giveaway-end") {
+      if (!hasGiveawayAccess(interaction.member)) {
+        return interaction.reply({
+          content: "❌ אין לך גישה לסיים הגרלות.",
+          ephemeral: true
+        });
+      }
+
+      const id = interaction.options.getString("giveaway_id");
+      const giveaway = giveawaysData[id];
+
+      if (!giveaway || giveaway.guildId !== interaction.guild.id) {
+        return interaction.reply({
+          content: "❌ לא מצאתי הגרלה עם ה־ID הזה.",
+          ephemeral: true
+        });
+      }
+
+      if (giveaway.ended) {
+        return interaction.reply({
+          content: "❌ ההגרלה כבר הסתיימה.",
+          ephemeral: true
+        });
+      }
+
+      await interaction.deferReply({ ephemeral: true });
+
+      const result = await endGiveaway(
+        id,
+        interaction.user.id
+      );
+
+      return interaction.editReply(
+        result
+          ? "✅ ההגרלה הסתיימה."
+          : "❌ לא הצלחתי לסיים את ההגרלה."
+      );
+    }
+
+    if (interaction.commandName === "giveaway-reroll") {
+      if (!hasGiveawayAccess(interaction.member)) {
+        return interaction.reply({
+          content: "❌ אין לך גישה לבצע Reroll.",
+          ephemeral: true
+        });
+      }
+
+      const id = interaction.options.getString("giveaway_id");
+      const giveaway = giveawaysData[id];
+
+      if (!giveaway || giveaway.guildId !== interaction.guild.id) {
+        return interaction.reply({
+          content: "❌ לא מצאתי הגרלה עם ה־ID הזה.",
+          ephemeral: true
+        });
+      }
+
+      if (!giveaway.ended) {
+        return interaction.reply({
+          content: "❌ אפשר לבצע Reroll רק לאחר סיום ההגרלה.",
+          ephemeral: true
+        });
+      }
+
+      const channel = await interaction.guild.channels
+        .fetch(giveaway.channelId)
+        .catch(() => null);
+
+      if (!channel?.isTextBased()) {
+        return interaction.reply({
+          content: "❌ חדר ההגרלה לא נמצא.",
+          ephemeral: true
+        });
+      }
+
+      const winners = pickRandomWinners(
+        giveaway.participants,
+        giveaway.winnerCount
+      );
+
+      giveaway.winners = winners;
+      giveaway.lastRerollAt = Date.now();
+      giveaway.lastRerollBy = interaction.user.id;
+
+      saveJson(GIVEAWAYS_FILE, giveawaysData);
+
+      await channel.send(
+        winners.length
+          ? `🔄 Reroll! הזוכים החדשים ב־**${giveaway.prize}** הם: ${winners.map(userId => `<@${userId}>`).join(", ")}`
+          : "😕 אין מספיק משתתפים לביצוע Reroll."
+      ).catch(() => {});
+
+      return interaction.reply({
+        content: "✅ בוצע Reroll.",
         ephemeral: true
       });
     }
@@ -1548,6 +1859,59 @@ client.on("interactionCreate", async (interaction) => {
         ephemeral: true
       }).catch(() => {});
     }
+  }
+
+
+  if (interaction.customId.startsWith("giveaway_join:")) {
+    const id = interaction.customId.split(":")[1];
+    const giveaway = giveawaysData[id];
+
+    if (!giveaway || giveaway.ended) {
+      return interaction.reply({
+        content: "❌ ההגרלה כבר לא פעילה.",
+        ephemeral: true
+      });
+    }
+
+    if (giveaway.endsAt <= Date.now()) {
+      await endGiveaway(id).catch(() => {});
+
+      return interaction.reply({
+        content: "❌ ההגרלה כבר הסתיימה.",
+        ephemeral: true
+      });
+    }
+
+    const userIndex =
+      giveaway.participants.indexOf(interaction.user.id);
+
+    if (userIndex !== -1) {
+      giveaway.participants.splice(userIndex, 1);
+      saveJson(GIVEAWAYS_FILE, giveawaysData);
+
+      await interaction.update({
+        embeds: [buildGiveawayEmbed(giveaway)],
+        components: giveawayJoinButton(id)
+      });
+
+      return interaction.followUp({
+        content: "✅ יצאת מההגרלה.",
+        ephemeral: true
+      });
+    }
+
+    giveaway.participants.push(interaction.user.id);
+    saveJson(GIVEAWAYS_FILE, giveawaysData);
+
+    await interaction.update({
+      embeds: [buildGiveawayEmbed(giveaway)],
+      components: giveawayJoinButton(id)
+    });
+
+    return interaction.followUp({
+      content: "🎉 הצטרפת להגרלה בהצלחה!",
+      ephemeral: true
+    });
   }
 
   if (interaction.customId === "start_verify") {
