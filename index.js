@@ -790,13 +790,7 @@ async function openSalesTicket(interaction, ticketData) {
 👤 משתמש: <@${interaction.user.id}>
 📌 סוג טיקט: **${ticketData.name}**
 
-<@&${config.ticketStaffRoleId}>
-
-🙋 **Claim** — לקיחת הטיקט
-🔓 **Release** — שחרור הטיקט
-➕ **Add User** — הוספת משתמש
-➖ **Remove User** — הסרת משתמש
-🔒 **Close** — סגירת הטיקט`,
+<@&${config.ticketStaffRoleId}>`,
     components: [row]
   });
 
