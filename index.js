@@ -666,47 +666,41 @@ async function setTicketClaimedBy(channel, userId = null) {
 }
 
 function buildTicketButtons(claimedById = null) {
-  const row = new ActionRowBuilder();
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("claim_sales_ticket")
+      .setLabel("Claim Ticket")
+      .setEmoji("🙋")
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(Boolean(claimedById)),
 
-  if (!claimedById) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId("claim_sales_ticket")
-        .setLabel("Claim Ticket")
-        .setEmoji("🙋")
-        .setStyle(ButtonStyle.Success)
-    );
-  } else {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId("release_sales_ticket")
-        .setLabel("Release Ticket")
-        .setEmoji("🔓")
-        .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("release_sales_ticket")
+      .setLabel("Release Ticket")
+      .setEmoji("🔓")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(!claimedById),
 
-      new ButtonBuilder()
-        .setCustomId("add_user_sales_ticket")
-        .setLabel("Add User")
-        .setEmoji("➕")
-        .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("add_user_sales_ticket")
+      .setLabel("Add User")
+      .setEmoji("➕")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(!claimedById),
 
-      new ButtonBuilder()
-        .setCustomId("remove_user_sales_ticket")
-        .setLabel("Remove User")
-        .setEmoji("➖")
-        .setStyle(ButtonStyle.Secondary)
-    );
-  }
+    new ButtonBuilder()
+      .setCustomId("remove_user_sales_ticket")
+      .setLabel("Remove User")
+      .setEmoji("➖")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(!claimedById),
 
-  row.addComponents(
     new ButtonBuilder()
       .setCustomId("close_sales_ticket")
       .setLabel("Close Ticket")
       .setEmoji("🔒")
       .setStyle(ButtonStyle.Danger)
   );
-
-  return row;
 }
 
 async function createTicketTranscript(channel) {
@@ -796,7 +790,13 @@ async function openSalesTicket(interaction, ticketData) {
 👤 משתמש: <@${interaction.user.id}>
 📌 סוג טיקט: **${ticketData.name}**
 
-<@&${config.ticketStaffRoleId}>`,
+<@&${config.ticketStaffRoleId}>
+
+🙋 **Claim** — לקיחת הטיקט
+🔓 **Release** — שחרור הטיקט
+➕ **Add User** — הוספת משתמש
+➖ **Remove User** — הסרת משתמש
+🔒 **Close** — סגירת הטיקט`,
     components: [row]
   });
 
