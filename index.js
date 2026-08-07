@@ -13,6 +13,7 @@ const {
   ButtonStyle,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
+  UserSelectMenuBuilder,
   ChannelType,
   PermissionFlagsBits,
   AuditLogEvent,
@@ -645,6 +646,69 @@ function isTicketStaff(member) {
   return member.roles.cache.has(config.ticketStaffRoleId);
 }
 
+
+function getTicketClaimedBy(channel) {
+  const match = channel.topic?.match(/claimedBy:(\d{17,20})/);
+  return match?.[1] || null;
+}
+
+async function setTicketClaimedBy(channel, userId = null) {
+  const currentTopic = channel.topic || "";
+  const cleanedTopic = currentTopic
+    .replace(/\s*\|\s*claimedBy:\d{17,20}/g, "")
+    .trim();
+
+  const newTopic = userId
+    ? `${cleanedTopic} | claimedBy:${userId}`.slice(0, 1024)
+    : cleanedTopic.slice(0, 1024);
+
+  await channel.setTopic(newTopic).catch(() => {});
+}
+
+function buildTicketButtons(claimedById = null) {
+  const row = new ActionRowBuilder();
+
+  if (!claimedById) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId("claim_sales_ticket")
+        .setLabel("Claim Ticket")
+        .setEmoji("🙋")
+        .setStyle(ButtonStyle.Success)
+    );
+  } else {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId("release_sales_ticket")
+        .setLabel("Release Ticket")
+        .setEmoji("🔓")
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId("add_user_sales_ticket")
+        .setLabel("Add User")
+        .setEmoji("➕")
+        .setStyle(ButtonStyle.Primary),
+
+      new ButtonBuilder()
+        .setCustomId("remove_user_sales_ticket")
+        .setLabel("Remove User")
+        .setEmoji("➖")
+        .setStyle(ButtonStyle.Secondary)
+    );
+  }
+
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId("close_sales_ticket")
+      .setLabel("Close Ticket")
+      .setEmoji("🔒")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return row;
+}
+
 async function createTicketTranscript(channel) {
   const messages = await channel.messages.fetch({ limit: 100 });
 
@@ -723,19 +787,7 @@ async function openSalesTicket(interaction, ticketData) {
     ]
   });
 
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("claim_sales_ticket")
-      .setLabel("Claim Ticket")
-      .setEmoji("🙋")
-      .setStyle(ButtonStyle.Success),
-
-    new ButtonBuilder()
-      .setCustomId("close_sales_ticket")
-      .setLabel("Close Ticket")
-      .setEmoji("🔒")
-      .setStyle(ButtonStyle.Danger)
-  );
+  const row = buildTicketButtons();
 
   await ticketChannel.send({
     content:
@@ -866,6 +918,108 @@ client.on("interactionCreate", async (interaction) => {
     const ticketData = types[interaction.values[0]];
 
     return openSalesTicket(interaction, ticketData);
+  }
+
+
+  // USER SELECT MENU - TICKET ADD / REMOVE USER
+  if (interaction.isUserSelectMenu()) {
+    if (
+      interaction.customId !== "ticket_add_user_select" &&
+      interaction.customId !== "ticket_remove_user_select"
+    ) {
+      return;
+    }
+
+    if (!hasTicketConfig()) {
+      return interaction.reply({
+        content: "❌ חסרים IDs של טיקטים ב־config.js.",
+        ephemeral: true
+      });
+    }
+
+    const claimedById = getTicketClaimedBy(interaction.channel);
+
+    if (!claimedById) {
+      return interaction.reply({
+        content: "❌ הטיקט לא נמצא כרגע ב־Claim.",
+        ephemeral: true
+      });
+    }
+
+    if (interaction.user.id !== claimedById) {
+      return interaction.reply({
+        content: "❌ רק מי שלקח את הטיקט יכול להוסיף או להסיר משתמשים.",
+        ephemeral: true
+      });
+    }
+
+    const selectedUser = interaction.users.first();
+
+    if (!selectedUser) {
+      return interaction.reply({
+        content: "❌ לא נבחר משתמש.",
+        ephemeral: true
+      });
+    }
+
+    const ticketOwnerId = interaction.channel.topic
+      ?.match(/ticketOwner:(\d{17,20})/)?.[1];
+
+    if (interaction.customId === "ticket_add_user_select") {
+      await interaction.channel.permissionOverwrites.edit(
+        selectedUser.id,
+        {
+          ViewChannel: true,
+          SendMessages: true,
+          ReadMessageHistory: true
+        },
+        {
+          reason: `Added to ticket by ${interaction.user.tag}`
+        }
+      ).catch(() => null);
+
+      return interaction.update({
+        content: `✅ ${selectedUser} נוסף לטיקט.`,
+        components: []
+      });
+    }
+
+    if (selectedUser.id === ticketOwnerId) {
+      return interaction.update({
+        content: "❌ אי אפשר להסיר את מי שפתח את הטיקט.",
+        components: []
+      });
+    }
+
+    if (selectedUser.id === claimedById) {
+      return interaction.update({
+        content: "❌ אי אפשר להסיר את מי שלקח את הטיקט.",
+        components: []
+      });
+    }
+
+    const selectedMember = await interaction.guild.members
+      .fetch(selectedUser.id)
+      .catch(() => null);
+
+    if (selectedMember?.roles.cache.has(config.ticketStaffRoleId)) {
+      return interaction.update({
+        content: "❌ אי אפשר להסיר איש צוות מהטיקט דרך הכפתור הזה.",
+        components: []
+      });
+    }
+
+    await interaction.channel.permissionOverwrites
+      .delete(
+        selectedUser.id,
+        `Removed from ticket by ${interaction.user.tag}`
+      )
+      .catch(() => null);
+
+    return interaction.update({
+      content: `✅ ${selectedUser} הוסר מהטיקט.`,
+      components: []
+    });
   }
 
   // SLASH COMMANDS
@@ -1626,28 +1780,126 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("claimed_sales_ticket")
-        .setLabel(`Claimed by ${interaction.user.username}`)
-        .setEmoji("🙋")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true),
+    const alreadyClaimedBy = getTicketClaimedBy(interaction.channel);
 
-      new ButtonBuilder()
-        .setCustomId("close_sales_ticket")
-        .setLabel("Close Ticket")
-        .setEmoji("🔒")
-        .setStyle(ButtonStyle.Danger)
+    if (alreadyClaimedBy) {
+      return interaction.reply({
+        content: `❌ הטיקט כבר נלקח על ידי <@${alreadyClaimedBy}>.`,
+        ephemeral: true
+      });
+    }
+
+    await setTicketClaimedBy(
+      interaction.channel,
+      interaction.user.id
     );
 
     await interaction.update({
-      components: [row]
+      components: [buildTicketButtons(interaction.user.id)]
     });
 
     return interaction.channel.send(
       `🙋 הטיקט נלקח על ידי <@${interaction.user.id}>`
     ).catch(() => {});
+  }
+
+  if (interaction.customId === "release_sales_ticket") {
+    if (!hasTicketConfig()) {
+      return interaction.reply({
+        content: "❌ חסרים IDs של טיקטים ב־config.js.",
+        ephemeral: true
+      });
+    }
+
+    const claimedById = getTicketClaimedBy(interaction.channel);
+
+    if (!claimedById) {
+      return interaction.reply({
+        content: "❌ הטיקט כבר משוחרר.",
+        ephemeral: true
+      });
+    }
+
+    if (interaction.user.id !== claimedById) {
+      return interaction.reply({
+        content: "❌ רק מי שלקח את הטיקט יכול לשחרר אותו.",
+        ephemeral: true
+      });
+    }
+
+    await setTicketClaimedBy(interaction.channel, null);
+
+    await interaction.update({
+      components: [buildTicketButtons()]
+    });
+
+    return interaction.channel.send(
+      `🔓 <@${interaction.user.id}> שחרר את הטיקט. עכשיו איש צוות אחר יכול לקחת אותו.`
+    ).catch(() => {});
+  }
+
+  if (interaction.customId === "add_user_sales_ticket") {
+    const claimedById = getTicketClaimedBy(interaction.channel);
+
+    if (!claimedById) {
+      return interaction.reply({
+        content: "❌ קודם צריך לקחת את הטיקט.",
+        ephemeral: true
+      });
+    }
+
+    if (interaction.user.id !== claimedById) {
+      return interaction.reply({
+        content: "❌ רק מי שלקח את הטיקט יכול להוסיף משתמשים.",
+        ephemeral: true
+      });
+    }
+
+    const row = new ActionRowBuilder().addComponents(
+      new UserSelectMenuBuilder()
+        .setCustomId("ticket_add_user_select")
+        .setPlaceholder("בחר משתמש להוסיף לטיקט")
+        .setMinValues(1)
+        .setMaxValues(1)
+    );
+
+    return interaction.reply({
+      content: "➕ בחר משתמש להוסיף לטיקט:",
+      components: [row],
+      ephemeral: true
+    });
+  }
+
+  if (interaction.customId === "remove_user_sales_ticket") {
+    const claimedById = getTicketClaimedBy(interaction.channel);
+
+    if (!claimedById) {
+      return interaction.reply({
+        content: "❌ קודם צריך לקחת את הטיקט.",
+        ephemeral: true
+      });
+    }
+
+    if (interaction.user.id !== claimedById) {
+      return interaction.reply({
+        content: "❌ רק מי שלקח את הטיקט יכול להסיר משתמשים.",
+        ephemeral: true
+      });
+    }
+
+    const row = new ActionRowBuilder().addComponents(
+      new UserSelectMenuBuilder()
+        .setCustomId("ticket_remove_user_select")
+        .setPlaceholder("בחר משתמש להסיר מהטיקט")
+        .setMinValues(1)
+        .setMaxValues(1)
+    );
+
+    return interaction.reply({
+      content: "➖ בחר משתמש להסיר מהטיקט:",
+      components: [row],
+      ephemeral: true
+    });
   }
 
   if (interaction.customId === "close_sales_ticket") {
