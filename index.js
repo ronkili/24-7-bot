@@ -1263,6 +1263,106 @@ client.on("interactionCreate", async (interaction) => {
     }
 
 
+
+    if (
+      interaction.commandName === "add-vip-request" ||
+      interaction.commandName === "remove-vip-request"
+    ) {
+      try {
+        if (!hasVipConfig()) {
+          return interaction.reply({
+            content: "❌ חסרים IDs של מערכת VIP ב־config.js.",
+            ephemeral: true
+          });
+        }
+
+        if (!isVipOwner(interaction.member)) {
+          return interaction.reply({
+            content: "❌ רק Owners יכולים להשתמש בפקודה הזאת.",
+            ephemeral: true
+          });
+        }
+
+        const target = interaction.options.getUser("user");
+        const amount = interaction.options.getInteger("amount");
+
+        if (!target || !Number.isInteger(amount) || amount < 1) {
+          return interaction.reply({
+            content: "❌ משתמש או כמות לא תקינים.",
+            ephemeral: true
+          });
+        }
+
+        if (target.bot) {
+          return interaction.reply({
+            content: "❌ אי אפשר לשנות בקשות VIP של בוט.",
+            ephemeral: true
+          });
+        }
+
+        const account = getVipRequestAccount(target.id);
+        const before = account.balance;
+        const isAdd =
+          interaction.commandName === "add-vip-request";
+
+        if (isAdd) {
+          account.balance += amount;
+          account.totalReceived += amount;
+        } else {
+          account.balance = Math.max(
+            0,
+            account.balance - amount
+          );
+        }
+
+        saveJson(VIP_REQUESTS_FILE, vipRequestsData);
+
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(isAdd ? "Green" : "Red")
+              .setTitle(
+                isAdd
+                  ? "✅ נוספו בקשות VIP"
+                  : "➖ הוסרו בקשות VIP"
+              )
+              .setDescription(
+                `👤 משתמש: ${target}\n\n` +
+                `🎟️ לפני: **${before}**\n` +
+                `🔄 שינוי: **${isAdd ? "+" : "-"}${amount}**\n` +
+                `🎟️ עכשיו: **${account.balance}**`
+              )
+              .setFooter({
+                text: `בוצע על ידי ${interaction.user.tag}`
+              })
+              .setTimestamp()
+          ],
+          ephemeral: true
+        });
+      } catch (error) {
+        console.error(
+          "VIP requests management error:",
+          error
+        );
+
+        if (interaction.replied || interaction.deferred) {
+          return interaction.followUp({
+            content:
+              "❌ הייתה שגיאה בניהול בקשות ה־VIP.\n" +
+              `שגיאה: \`${error.code || error.message}\``,
+            ephemeral: true
+          }).catch(() => {});
+        }
+
+        return interaction.reply({
+          content:
+            "❌ הייתה שגיאה בניהול בקשות ה־VIP.\n" +
+            `שגיאה: \`${error.code || error.message}\``,
+          ephemeral: true
+        }).catch(() => {});
+      }
+    }
+
     if (interaction.commandName === "giveaway-access") {
       if (!isVipOwner(interaction.member)) {
         return interaction.reply({
